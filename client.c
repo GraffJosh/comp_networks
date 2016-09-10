@@ -13,23 +13,30 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
+#define true 1
+
 	int status, sfd, request_len;
+	char RTT;
 	ssize_t nread;
-	char* hostname;
+	char* URL;
 	char* portnum;
 	char* received_buffer;
+	char* directory;
+	char* hostname;
+	char head_request[1000];
 	int received_buffer_size;
 	struct addrinfo *addr_info, *rp, *hints;
 
 int main(int argc, char *argv[])
 {
-	request_len =85;
 	received_buffer_size = 2000;
 	received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
+	URL = realloc(URL,(sizeof(char)*100));
+	directory = realloc(directory,(sizeof(char)*100));
 	hostname = realloc(hostname,(sizeof(char)*100));
 	portnum = realloc(portnum,(sizeof(char)*20));
 	hints = realloc(hints,sizeof(hints));
-	portnum = "80";
+	portnum = realloc(portnum,sizeof(long));
 	char ipstr[INET6_ADDRSTRLEN];
 	//Man Pages
 	hints->ai_family = AF_INET;    		//IPV4
@@ -38,16 +45,27 @@ int main(int argc, char *argv[])
 	hints->ai_protocol = 0;
 
 
+	//parse arguments
 	if (argc < 2)
 	{
 		printf("Not enough arguments\n");	
-		printf("usage: ./client \'hostname\'\n");
+		printf("usage: ./client \'flags\' \'URL\' \'port\'\n");
 		return 1;	
-	}else{
-		hostname = argv[1];
+	}else if(argc == 2){
+		URL = argv[argc-1];	//the second to last arg is the 
+		portnum = "80";
+	}if(argc >= 3){
+		URL = argv[argc-2];	//the second to last arg is the 
+		portnum = argv[argc-1];		//last arg is port
+		for (int i = 1; i < argc-2; ++i)
+		{
+			if(index(argv[i],'p') != NULL)
+				RTT = true;			//user requested RTT 
+		}
 	}
 
-	if(getaddrinfo(hostname,portnum,hints,&addr_info))
+	//DNS lookup
+	if(getaddrinfo(URL,portnum,hints,&addr_info))
 	{
 		printf("error retrieving info\n");
 		return 1;
@@ -74,9 +92,9 @@ int main(int argc, char *argv[])
 		printf(" %s: %s\n", ipver, ipstr);
 	}
 */
-
+	//open local socket
 	sfd = socket(addr_info->ai_family, addr_info->ai_socktype,addr_info->ai_protocol);
-
+	//connect to remote host
 	if (connect(sfd, addr_info->ai_addr, addr_info->ai_addrlen) != -1) //we're connected
 		printf("success\n");
 
@@ -88,15 +106,19 @@ int main(int argc, char *argv[])
 	}
 	freeaddrinfo(addr_info);
 
-
-
-	//request data
-	if((status = send(sfd, "GET /Obama.html HTTP/1.0\r\nHost: Joshuagraff.com\r\nUser-Agent: Mobile/7B405\r\n\r\n", request_len,0)) != request_len) 
+	char* _com_position;
+	_com_position = strstr(URL, ".com") + 4;
+	memcpy(directory, _com_position, strlen(URL)-(_com_position-URL));		//retreive the directory
+	memcpy(hostname, URL, _com_position-URL);
+	sprintf(head_request, "HEAD %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0","/Obama.html",hostname);
+	request_len = 80;//strlen(head_request)+2;
+	printf("%s\n%d\n\n", head_request,request_len);
+	//head_request data
+	if((status = send(sfd, head_request, request_len,0)) != request_len) 
 	{
 		fprintf(stderr, "partial/failed write\n");
 		exit(EXIT_FAILURE);
 	}
-	printf("%d\n", status);
 
 	//receive data
 	nread = recv(sfd, received_buffer, received_buffer_size,0);
