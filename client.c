@@ -16,20 +16,24 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 #define true 1
 
 	int status, sfd, request_len;
-	char RTT;
+	char RTT_flag;
+	double RTT;
 	ssize_t nread;
 	char* URL;
 	char* portnum;
 	char* received_buffer;
 	char* directory;
 	char* hostname;
+	char get_request[1000];
 	char head_request[1000];
 	int received_buffer_size;
 	struct addrinfo *addr_info, *rp, *hints;
+	struct timeval start_time, end_time;
+	unsigned long end_time_micro, start_time_micro;
 
 int main(int argc, char *argv[])
 {
-	received_buffer_size = 2000;
+	received_buffer_size = 20000;
 	received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
 	URL = realloc(URL,(sizeof(char)*100));
 	directory = realloc(directory,(sizeof(char)*100));
@@ -60,12 +64,23 @@ int main(int argc, char *argv[])
 		for (int i = 1; i < argc-2; ++i)
 		{
 			if(index(argv[i],'p') != NULL)
-				RTT = true;			//user requested RTT 
+				RTT_flag = true;			//user requested RTT 
 		}
 	}
 
+	char* _com_position;
+	_com_position = strstr(URL, ".com") + 4;
+	memcpy(directory, _com_position, strlen(URL)-(_com_position-URL));		//retreive the directory
+	memcpy(hostname, URL, _com_position-URL);
+	if(directory[0] == '/')
+		memmove(directory, directory+1,strlen(directory));
+	//construct the head request
+	sprintf(head_request, "HEAD /%s HTTP/1.0\r\nHost: %s\r\nConnection:close\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
+	sprintf(get_request, "GET /%s HTTP/1.0\r\nHost: %s\r\nConnection:close\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
+	
+
 	//DNS lookup
-	if(getaddrinfo(URL,portnum,hints,&addr_info))
+	if(getaddrinfo(hostname,portnum,hints,&addr_info))
 	{
 		printf("error retrieving info\n");
 		return 1;
@@ -92,12 +107,16 @@ int main(int argc, char *argv[])
 		printf(" %s: %s\n", ipver, ipstr);
 	}
 */
-	//open local socket
+
+//Get a head request to resize the buffer for the page.
+
+	//open local socket according to the parameters specified previously
 	sfd = socket(addr_info->ai_family, addr_info->ai_socktype,addr_info->ai_protocol);
-	//connect to remote host
+	//connect to remote host (and time it)
+	gettimeofday(&start_time,NULL);
 	if (connect(sfd, addr_info->ai_addr, addr_info->ai_addrlen) != -1) //we're connected
 		printf("success\n");
-
+	gettimeofday(&end_time,NULL);
 
 	if(addr_info == NULL)
 	{
@@ -106,20 +125,17 @@ int main(int argc, char *argv[])
 	}
 	freeaddrinfo(addr_info);
 
-	char* _com_position;
-	_com_position = strstr(URL, ".com") + 4;
-	memcpy(directory, _com_position, strlen(URL)-(_com_position-URL));		//retreive the directory
-	memcpy(hostname, URL, _com_position-URL);
-	sprintf(head_request, "HEAD %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: Mozilla/5.0","/Obama.html",hostname);
-	request_len = 80;//strlen(head_request)+2;
-	printf("%s\n%d\n\n", head_request,request_len);
-	//head_request data
-	if((status = send(sfd, head_request, request_len,0)) != request_len) 
+
+	//get_request data
+	request_len = strlen(get_request);
+	if((status = send(sfd, get_request, request_len,0)) != request_len) 
 	{
 		fprintf(stderr, "partial/failed write\n");
 		exit(EXIT_FAILURE);
 	}
 
+
+	printf("%s\n%d\n\n", get_request,status);
 	//receive data
 	nread = recv(sfd, received_buffer, received_buffer_size,0);
 	if (nread == -1) 
@@ -127,7 +143,15 @@ int main(int argc, char *argv[])
 		perror("read");
 		exit(EXIT_FAILURE);
 	}
+	//close socket
 	close(sfd);
-	printf("Received %ld bytes: %s\n", (long) nread, received_buffer);
+	
+	//print timing if requested
+	start_time_micro = start_time.tv_usec + (1000000 * start_time.tv_sec);
+	end_time_micro =  end_time.tv_usec+(1000000 * end_time.tv_sec);
+	RTT = end_time_micro-start_time_micro;
+	if(RTT_flag)
+		printf("Received %ld bytes in %f microseconds.\n%s\n", (long) nread, RTT,received_buffer);
+
 
 }
