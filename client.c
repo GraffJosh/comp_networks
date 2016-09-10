@@ -67,15 +67,22 @@ int main(int argc, char *argv[])
 				RTT_flag = true;			//user requested RTT 
 		}
 	}
-
+	
 	char* _com_position;
-	_com_position = strstr(URL, ".com") + 4;
+	if(strstr(URL, ".com"))
+		_com_position = strstr(URL, ".com") + 4;
+	else if(strstr(URL, ".edu"))
+		_com_position = strstr(URL, ".edu") + 4;
+	else if(strstr(URL, ".org"))
+		_com_position = strstr(URL, ".org") + 4;
+	else if(strstr(URL, ".net"))
+		_com_position = strstr(URL, ".net") + 4;	
 	memcpy(directory, _com_position, strlen(URL)-(_com_position-URL));		//retreive the directory
 	memcpy(hostname, URL, _com_position-URL);
 	if(directory[0] == '/')
 		memmove(directory, directory+1,strlen(directory));
 	//construct the head request
-	sprintf(head_request, "HEAD /%s HTTP/1.0\r\nHost: %s\r\nConnection:close\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
+	sprintf(head_request, "HEAD /%s HTTP/1.0\r\nHost: %s\r\nConnection:Keep-Alive\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
 	sprintf(get_request, "GET /%s HTTP/1.0\r\nHost: %s\r\nConnection:close\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
 	
 
@@ -122,11 +129,42 @@ int main(int argc, char *argv[])
 	{
 		printf("failed to connect\n");
 		return 1;
+	}else{
+		freeaddrinfo(addr_info);
 	}
-	freeaddrinfo(addr_info);
 
+	//get a head_request to resize the buffer
+	request_len = strlen(head_request);
+	if((status = send(sfd, head_request, request_len,0)) != request_len) 
+	{
+		fprintf(stderr, "partial/failed write\n");
+		exit(EXIT_FAILURE);
+	}
+	printf("%s\n%d\n\n", head_request,status);
+	//receive data
+	nread = recv(sfd, received_buffer, received_buffer_size,0);
+	if (nread == -1) 
+	{
+		perror("read");
+		exit(EXIT_FAILURE);
+	}
+	printf("Received %ld bytes:\n%s\n", (long) nread,received_buffer);
+	char* _size_position;
+	char* _size_end;
+	char _size_char[30];
+	if(strstr(received_buffer, "Content-Length: "))
+	{
+		_size_position = strstr(received_buffer, "Content-Length: ") + 16;
+		_size_end = strstr(_size_position, "\r\n");
+		
+		memcpy(_size_char, _size_position, _size_end-_size_position);
+		received_buffer_size = 245230;//atoi(_size_position)+1000;
+	}else{
+		received_buffer_size = 20000;
+	}
+		received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
 
-	//get_request data
+	//get_request data get the actual data
 	request_len = strlen(get_request);
 	if((status = send(sfd, get_request, request_len,0)) != request_len) 
 	{
@@ -134,8 +172,6 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-
-	printf("%s\n%d\n\n", get_request,status);
 	//receive data
 	nread = recv(sfd, received_buffer, received_buffer_size,0);
 	if (nread == -1) 
@@ -155,3 +191,6 @@ int main(int argc, char *argv[])
 
 
 }
+
+
+
