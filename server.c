@@ -45,7 +45,26 @@ int main(int argc, char *argv[])
 		printf("error retrieving info\n");
 		exit(1);
 	}
-
+//prints the IPAddr; from the text that kinnicky linked us.
+	for(rp = addr_info;rp != NULL; rp = rp->ai_next) {
+		void *addr;
+		char *ipver;
+		// get the rpointer to the address itself,
+		// different fields in Irpv4 and Irpv6:
+		if (rp->ai_family == AF_INET) { // Irpv4
+			struct sockaddr_in *ipv4 = (struct sockaddr_in *)rp->ai_addr;
+			addr = &(ipv4->sin_addr);
+			ipver = "Ipv4";
+		} else { // Irpv6
+			struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)rp->ai_addr;
+			addr = &(ipv6->sin6_addr);
+			ipver = "Ipv6";
+		}
+		// convert the Irp to a string and print it:
+		char ipstr[100];
+		inet_ntop(rp->ai_family, addr, ipstr, sizeof ipstr);
+		printf(" %s: %s\n", ipver, ipstr);
+	}
 	//cycle through the linked list of address information until we find one that works
 	for(rp = addr_info; rp != NULL; rp = rp->ai_next) {
 		if ((sfd = socket(rp->ai_family, rp->ai_socktype,rp->ai_protocol)) == -1) {

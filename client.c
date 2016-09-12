@@ -33,6 +33,7 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 
 int main(int argc, char *argv[])
 {
+	int i = 0;
 	received_buffer_size = 20000;
 	received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
 	URL = realloc(URL,(sizeof(char)*100));
@@ -60,14 +61,22 @@ int main(int argc, char *argv[])
 	}if(argc >= 3){
 		URL = argv[argc-2];	//the second to last arg is the 
 		portnum = argv[argc-1];		//last arg is port
-		for (int i = 1; i < argc-2; ++i)
+		for (i = 1; i < argc-2; ++i)
 		{
 			if(index(argv[i],'p') != NULL)
 				RTT_flag = true;			//user requested RTT 
 		}
 	}
-	
+
+
 	char* _com_position;
+	if(strstr(URL, "https://"))
+	{
+		printf("Sorry, does not support secured connections.\n");
+		exit(EXIT_FAILURE);
+	}else if(strstr(URL, "http://"))
+		URL = strstr(URL, "http://")+7;
+		
 	if(strstr(URL, ".com"))
 		_com_position = strstr(URL, ".com") + 4;
 	else if(strstr(URL, ".edu"))
@@ -166,7 +175,7 @@ int main(int argc, char *argv[])
 		memcpy(_size_char, _size_position, _size_end-_size_position);
 		received_buffer_size = sizeof(char)*(atoi(_size_position)+1000);// 245230*sizeof(char);//
 	}else{
-		received_buffer_size = 20000;
+		received_buffer_size = sizeof(char)*200000;
 	}
 		received_buffer = realloc(received_buffer,received_buffer_size);
 
