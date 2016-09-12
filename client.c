@@ -40,7 +40,6 @@ int main(int argc, char *argv[])
 	hostname = realloc(hostname,(sizeof(char)*100));
 	portnum = realloc(portnum,(sizeof(char)*20));
 	hints = realloc(hints,sizeof(hints));
-	portnum = realloc(portnum,sizeof(long));
 	char ipstr[INET6_ADDRSTRLEN];
 	//Man Pages
 	hints->ai_family = AF_INET;    		//IPV4
@@ -76,7 +75,14 @@ int main(int argc, char *argv[])
 	else if(strstr(URL, ".org"))
 		_com_position = strstr(URL, ".org") + 4;
 	else if(strstr(URL, ".net"))
-		_com_position = strstr(URL, ".net") + 4;	
+		_com_position = strstr(URL, ".net") + 4;
+	else if(strstr(URL, ".us"))
+		_com_position = strstr(URL, ".us") + 3;
+	else{
+		printf("Unrecognized TLD.\n");
+		exit(EXIT_FAILURE);
+	}
+	//printf("%d\n",strlen(URL) );
 	memcpy(directory, _com_position, strlen(URL)-(_com_position-URL));		//retreive the directory
 	memcpy(hostname, URL, _com_position-URL);
 	if(directory[0] == '/')
@@ -148,7 +154,7 @@ int main(int argc, char *argv[])
 		perror("read");
 		exit(EXIT_FAILURE);
 	}
-	printf("Received %ld bytes:\n%s\n", (long) nread,received_buffer);
+	//printf("Received %ld bytes:\n%s\n", (long) nread,received_buffer); //print return of head request
 	char* _size_position;
 	char* _size_end;
 	char _size_char[30];
@@ -158,11 +164,11 @@ int main(int argc, char *argv[])
 		_size_end = strstr(_size_position, "\r\n");
 		
 		memcpy(_size_char, _size_position, _size_end-_size_position);
-		received_buffer_size = 245230;//atoi(_size_position)+1000;
+		received_buffer_size = sizeof(char)*(atoi(_size_position)+1000);// 245230*sizeof(char);//
 	}else{
 		received_buffer_size = 20000;
 	}
-		received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
+		received_buffer = realloc(received_buffer,received_buffer_size);
 
 	//get_request data get the actual data
 	request_len = strlen(get_request);
@@ -173,21 +179,22 @@ int main(int argc, char *argv[])
 	}
 
 	//receive data
-	nread = recv(sfd, received_buffer, received_buffer_size,0);
+	nread = recv(sfd, received_buffer, received_buffer_size,MSG_WAITALL);
 	if (nread == -1) 
 	{
 		perror("read");
 		exit(EXIT_FAILURE);
 	}
+
 	//close socket
 	close(sfd);
-	
+	received_buffer[received_buffer_size] = '\0';
 	//print timing if requested
 	start_time_micro = start_time.tv_usec + (1000000 * start_time.tv_sec);
 	end_time_micro =  end_time.tv_usec+(1000000 * end_time.tv_sec);
 	RTT = end_time_micro-start_time_micro;
 	if(RTT_flag)
-		printf("Received %ld bytes in %f microseconds.\n%s\n", (long) nread, RTT,received_buffer);
+		printf("Received %ld bytes in %f microseconds. \nExpected %d bytes.\n\n%s\n", (long) nread, RTT, received_buffer_size,received_buffer);
 
 
 }
