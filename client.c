@@ -9,9 +9,12 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <time.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
+#include <netinet/in.h>       
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #define true 1
 
@@ -31,14 +34,23 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 	struct timeval start_time, end_time;
 	unsigned long end_time_micro, start_time_micro;
 
+void intHandler(int signal) {
+	free(received_buffer);
+}
+
 int main(int argc, char *argv[])
 {
+    struct sigaction act;
+    act.sa_handler = intHandler;
+    sigaction(SIGINT, &act, NULL);
+
+
 	int i = 0;
-	received_buffer_size = 20000;
+	received_buffer_size = 5000000;
 	received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
-	URL = realloc(URL,(sizeof(char)*100));
-	directory = realloc(directory,(sizeof(char)*100));
-	hostname = realloc(hostname,(sizeof(char)*100));
+	URL = realloc(URL,(sizeof(char)*400));
+	directory = realloc(directory,(sizeof(char)*200));
+	hostname = realloc(hostname,(sizeof(char)*200));
 	portnum = realloc(portnum,(sizeof(char)*20));
 	hints = realloc(hints,sizeof(hints));
 	char ipstr[INET6_ADDRSTRLEN];
@@ -152,7 +164,7 @@ int main(int argc, char *argv[])
 
 
 
-	//get a head_request to resize the buffer
+	/*//get a head_request to resize the buffer
 	request_len = strlen(head_request);
 	if((status = send(sfd, head_request, request_len,0)) != request_len) 
 	{
@@ -181,7 +193,7 @@ int main(int argc, char *argv[])
 		received_buffer_size = sizeof(char)*200000;
 	}
 		received_buffer = realloc(received_buffer,received_buffer_size);
-
+	*/
 
 
 	//get_request data get the actual data
@@ -208,9 +220,11 @@ int main(int argc, char *argv[])
 	end_time_micro =  end_time.tv_usec+(1000000 * end_time.tv_sec);
 	RTT = end_time_micro-start_time_micro;
 	if(RTT_flag)
-		printf("Received %ld bytes in %f microseconds. \nExpected %d bytes.\n\n%s\n", (long) nread, RTT, received_buffer_size,received_buffer);
+		printf("\n\n%s\n\nReceived %ld bytes in %f microseconds.\n",received_buffer,(long)nread,RTT);
 
-
+	free(received_buffer);
+	free(directory);
+	free(hostname);
 }
 
 

@@ -8,26 +8,68 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <string.h>
 #include <time.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <errno.h>
+#include <errno.h>       
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 
 struct addrinfo *addr_info, *rp, *hints;
 struct sockaddr_storage incoming_addr;
-char *portnum, *error_text,*received_buffer;
-char *directory,*filename, 
-int received_buffer_size, sfd,incoming_fd,true;
+char *portnum, *error_text,*received_buffer,*send_buffer;
+char *directory,*filename;
+char error_status[15];
+int received_buffer_size,send_buffer_size,filename_size,directory_size,sfd,incoming_fd,true;
 ssize_t nread;
 socklen_t sin_size;
+int send_file_descriptor;
+
+void exit_handler(int signal) {
+	switch (signal)
+	{
+		case 0:
+		//printf("Close Thread\n");
+		exit(0);
+		case 1://internal error
+		printf("exit on error %d\n", signal);
+		exit(1);
+		case 2://control-c
+		free(send_buffer);
+		free(received_buffer);
+		printf("Exit.\n");
+		exit(0);
+		case 3://thread close
+		//printf("Close Thread\n");
+		exit(0);
+		default:
+		//printf("Close Thread\n");
+		exit(0);
+	}
+	printf("Exited.\n");
+	exit(0);
+}
+
 
 int main(int argc, char *argv[])
 {
+
+    struct sigaction act;
+    act.sa_handler = exit_handler;
+    sigaction(SIGINT, &act, NULL);
+
 	received_buffer_size = 20000;
 	received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
-
+	filename_size = 500;
+	filename = realloc(filename,sizeof(char)*filename_size);
+	directory_size = 500;
+	directory = realloc(directory,sizeof(char)*directory_size);
+	send_buffer_size = 5000000;
+	send_buffer = realloc(send_buffer,sizeof(char)*send_buffer_size);
 	portnum = realloc(portnum,(sizeof(char)*20));
 	hints = realloc(hints,sizeof(*hints));
 	error_text = realloc(error_text,sizeof(char)*80);
@@ -50,7 +92,7 @@ int main(int argc, char *argv[])
 	if(getaddrinfo("localhost",portnum,hints,&addr_info))
 	{
 		printf("error retrieving info\n");
-		exit(1);
+		exit_handler(1);
 	}
 
 
@@ -89,7 +131,7 @@ int main(int argc, char *argv[])
 			perror(error_text);
 			printf("%s\n", error_text);
 			perror("SocketInUseError");
-			exit(1);
+			exit_handler(1);
 		}
 
 		if(bind(sfd, rp->ai_addr,rp->ai_addrlen)==-1)
@@ -108,14 +150,14 @@ int main(int argc, char *argv[])
 		perror(error_text);
 		printf("%s\n", error_text);
 		printf("failed to bind\n");
-		exit(1);
+		exit_handler(1);
 	}*/
 	if(listen(sfd, 10)==-1)
 	{			
 		perror(error_text);
 		printf("%s\n", error_text);
 		printf("ListenError\n");
-		exit(1);
+		exit_handler(1);
 	}
 
 	printf("Listening on port: %s\n", portnum);
@@ -129,16 +171,57 @@ int main(int argc, char *argv[])
 			printf("%s\n", error_text);
 			printf("AcceptError\n");
 		}
-		//receive data
-		nread = recv(incoming_fd, received_buffer, received_buffer_size,0);
-		if (nread == -1) 
-		{
-			perror("read");
-			exit(EXIT_FAILURE);
-		}
-		printf("Received %ld bytes. \nExpected %d bytes.\n\n%s\n", (long) nread, received_buffer_size,received_buffer);
 
-		send(incoming_fd, "JPGIndustries",13,0);
+		if (!fork()) { // this is the child process
+			close(sfd); // child doesn't need the listener
+			//receive data
+			nread = recv(incoming_fd, received_buffer, received_buffer_size,0);
+		if (nread == -1) 
+		{	perror("read");
+			exit_handler(EXIT_FAILURE);}
+
+			char* _file_name_position;
+			char* _file_name_end;
+			char _size_char[30];
+			if(strstr(received_buffer, "GET /"))
+			{
+				_file_name_position = strstr(received_buffer, "GET /") + 5;
+				_file_name_end = strstr(_file_name_position, "HTTP");
+				if(_file_name_end-_file_name_position > filename_size)
+				{
+					printf("filename too long\n");
+					exit_handler(1);
+				}
+				memcpy(filename, _file_name_position, (_file_name_end-_file_name_position)-1);
+			}
+			if(strlen(filename)<=1)
+			{
+				filename = "index.html";
+			}
+
+			printf("filename:%s\n", filename);
+			if((send_file_descriptor = open(filename,O_RDONLY))==-1)
+			{					
+				perror(error_text);
+			}else{
+				nread = read(send_file_descriptor,send_buffer, send_buffer_size-1);
+				if(nread==-1)
+				{	
+					perror(error_text);
+					exit_handler(1);
+				}
+
+
+				send(incoming_fd, send_buffer,send_buffer_size,0);
+
+			}
+
+
+
+
+			close(incoming_fd);
+			exit_handler(3);
+		}
 		close(incoming_fd);
 		
 	}
