@@ -87,13 +87,16 @@ int main(int argc, char *argv[])
 		_com_position = strstr(URL, ".net") + 4;
 	else if(strstr(URL, ".us"))
 		_com_position = strstr(URL, ".us") + 3;
+	else if(strstr(URL, "localhost"))
+		_com_position = strstr(URL, "localhost")+9;
 	else{
 		printf("Unrecognized TLD.\n");
 		exit(EXIT_FAILURE);
 	}
 	//printf("%d\n",strlen(URL) );
-	memcpy(directory, _com_position, strlen(URL)-(_com_position-URL));		//retreive the directory
-	memcpy(hostname, URL, _com_position-URL);
+	//if there is a TLD attached
+	memcpy(directory, _com_position, strlen(URL)-(_com_position-URL));		//parse the directory
+	memcpy(hostname, URL, _com_position-URL);								//parse the hostname
 	if(directory[0] == '/')
 		memmove(directory, directory+1,strlen(directory));
 	//construct the head request
@@ -137,7 +140,6 @@ int main(int argc, char *argv[])
 	//connect to remote host (and time it)
 	gettimeofday(&start_time,NULL);
 	if (connect(sfd, addr_info->ai_addr, addr_info->ai_addrlen) != -1) //we're connected
-		printf("success\n");
 	gettimeofday(&end_time,NULL);
 
 	if(addr_info == NULL)
@@ -148,6 +150,8 @@ int main(int argc, char *argv[])
 		freeaddrinfo(addr_info);
 	}
 
+
+
 	//get a head_request to resize the buffer
 	request_len = strlen(head_request);
 	if((status = send(sfd, head_request, request_len,0)) != request_len) 
@@ -155,7 +159,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "partial/failed write\n");
 		exit(EXIT_FAILURE);
 	}
-	printf("%s\n%d\n\n", head_request,status);
 	//receive data
 	nread = recv(sfd, received_buffer, received_buffer_size,0);
 	if (nread == -1) 
@@ -178,6 +181,8 @@ int main(int argc, char *argv[])
 		received_buffer_size = sizeof(char)*200000;
 	}
 		received_buffer = realloc(received_buffer,received_buffer_size);
+
+
 
 	//get_request data get the actual data
 	request_len = strlen(get_request);

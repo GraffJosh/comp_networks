@@ -12,18 +12,25 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 #include <time.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <errno.h>
 
 
 struct addrinfo *addr_info, *rp, *hints;
 struct sockaddr_storage incoming_addr;
-char* portnum;
-int sfd,incoming_fd,true;
+char *portnum, *error_text,*received_buffer;
+char *directory,*filename, 
+int received_buffer_size, sfd,incoming_fd,true;
+ssize_t nread;
 socklen_t sin_size;
 
 int main(int argc, char *argv[])
 {
+	received_buffer_size = 20000;
+	received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
+
 	portnum = realloc(portnum,(sizeof(char)*20));
-	hints = realloc(hints,sizeof(hints));
+	hints = realloc(hints,sizeof(*hints));
+	error_text = realloc(error_text,sizeof(char)*80);
 		//Man Pages
 	hints->ai_family = AF_INET;    		//IPV4
 	hints->ai_socktype = SOCK_STREAM; 	//TCP
@@ -40,11 +47,13 @@ int main(int argc, char *argv[])
 
 
 	//DNS lookup
-	if(getaddrinfo(NULL,portnum,hints,&addr_info))
+	if(getaddrinfo("localhost",portnum,hints,&addr_info))
 	{
 		printf("error retrieving info\n");
 		exit(1);
 	}
+
+
 //prints the IPAddr; from the text that kinnicky linked us.
 	for(rp = addr_info;rp != NULL; rp = rp->ai_next) {
 		void *addr;
@@ -63,23 +72,30 @@ int main(int argc, char *argv[])
 		// convert the Irp to a string and print it:
 		char ipstr[100];
 		inet_ntop(rp->ai_family, addr, ipstr, sizeof ipstr);
-		printf(" %s: %s\n", ipver, ipstr);
-	}
-	//cycle through the linked list of address information until we find one that works
-	for(rp = addr_info; rp != NULL; rp = rp->ai_next) {
+		printf("%s: %s\n", ipver, ipstr);
+
+
+
 		if ((sfd = socket(rp->ai_family, rp->ai_socktype,rp->ai_protocol)) == -1) {
+						
+			perror(error_text);
+			printf("%s\n", error_text);
 			perror("server: socket");
 			continue;
 		}
 
 		if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &true,sizeof(int)) == -1) 
-		{
+		{			
+			perror(error_text);
+			printf("%s\n", error_text);
 			perror("SocketInUseError");
 			exit(1);
 		}
 
 		if(bind(sfd, rp->ai_addr,rp->ai_addrlen)==-1)
 		{
+			perror(error_text);
+			printf("%s\n", error_text);
 			close(sfd);
 			printf("BindError\n");
 			continue;
@@ -87,13 +103,17 @@ int main(int argc, char *argv[])
 	}
 	freeaddrinfo(addr_info);
 
-	if(!rp)
+/*	if(!rp)
 	{
+		perror(error_text);
+		printf("%s\n", error_text);
 		printf("failed to bind\n");
 		exit(1);
-	}
+	}*/
 	if(listen(sfd, 10)==-1)
-	{
+	{			
+		perror(error_text);
+		printf("%s\n", error_text);
 		printf("ListenError\n");
 		exit(1);
 	}
@@ -104,12 +124,22 @@ int main(int argc, char *argv[])
 	{
 		socklen_t _addr_len = sizeof(incoming_addr);
 		if((incoming_fd=accept(sfd,(struct sockaddr *)&incoming_addr,&_addr_len))==-1)
-		{
+		{			
+			perror(error_text);
+			printf("%s\n", error_text);
 			printf("AcceptError\n");
 		}
+		//receive data
+		nread = recv(incoming_fd, received_buffer, received_buffer_size,0);
+		if (nread == -1) 
+		{
+			perror("read");
+			exit(EXIT_FAILURE);
+		}
+		printf("Received %ld bytes. \nExpected %d bytes.\n\n%s\n", (long) nread, received_buffer_size,received_buffer);
 
 		send(incoming_fd, "JPGIndustries",13,0);
-
 		close(incoming_fd);
+		
 	}
 }
