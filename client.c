@@ -18,10 +18,10 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 
 #define true 1
 
-	int status, sfd, request_len;
-	char RTT_flag;
+	int status, sfd, request_len,recieved_file_descriptor;
+	char RTT_flag,head_flag;
 	double RTT;
-	ssize_t nread;
+	ssize_t nread,nwrite;
 	char* URL;
 	char* portnum;
 	char* received_buffer;
@@ -66,6 +66,9 @@ int main(int argc, char *argv[])
 	{
 		printf("Not enough arguments\n");	
 		printf("usage: ./client \'flags\' \'URL\' \'port\'\n");
+		printf("acceptable flags\n\'-h\'print this help message\n");
+		printf("\'-p\'print RTT and data received as text\n");
+		printf("\'-c\'send only a head request to server\n");
 		return 1;	
 	}else if(argc == 2){
 		URL = argv[argc-1];	//the second to last arg is the 
@@ -77,6 +80,15 @@ int main(int argc, char *argv[])
 		{
 			if(index(argv[i],'p') != NULL)
 				RTT_flag = true;			//user requested RTT 
+			if(index(argv[i],'c') != NULL)
+				head_flag = true;
+			if(index(argv[i],'h') != NULL)
+			{
+				printf("usage: ./client \'flags\' \'URL\' \'port\'\n");
+				printf("acceptable flags\n\'-h\'print this help message\n");
+				printf("\'-p\'print RTT and data received as text\n");
+				printf("\'-c\'send only a head request to server\n");
+			}
 		}
 	}
 
@@ -112,8 +124,8 @@ int main(int argc, char *argv[])
 	if(directory[0] == '/')
 		memmove(directory, directory+1,strlen(directory));
 	//construct the head request
-	sprintf(head_request, "HEAD /%s HTTP/1.0\r\nHost: %s\r\nConnection:Keep-Alive\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
-	sprintf(get_request, "GET /%s HTTP/1.0\r\nHost: %s\r\nConnection:close\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
+	sprintf(head_request, "HEAD /%s HTTP/1.0\r\nHost: %s\r\nConnection: Keep-Alive\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
+	sprintf(get_request, "GET /%s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
 	
 
 	//DNS lookup
@@ -197,11 +209,21 @@ int main(int argc, char *argv[])
 
 
 	//get_request data get the actual data
-	request_len = strlen(get_request);
-	if((status = send(sfd, get_request, request_len,0)) != request_len) 
+	if(!head_flag)
 	{
-		fprintf(stderr, "partial/failed write\n");
-		exit(EXIT_FAILURE);
+		request_len = strlen(get_request);
+		if((status = send(sfd, get_request, request_len,0)) != request_len) 
+		{
+			fprintf(stderr, "partial/failed write\n");
+			exit(EXIT_FAILURE);
+		}
+	}else{
+		request_len = strlen(head_request);
+		if((status = send(sfd, head_request, request_len,0)) != request_len) 
+		{
+			fprintf(stderr, "partial/failed write\n");
+			exit(EXIT_FAILURE);
+		}
 	}
 
 	//receive data
@@ -211,16 +233,29 @@ int main(int argc, char *argv[])
 		perror("read");
 		exit(EXIT_FAILURE);
 	}
-
 	//close socket
 	close(sfd);
+
+
 	received_buffer[received_buffer_size] = '\0';
+	if((recieved_file_descriptor = open(directory,O_RDONLY))==-1)
+	{					
+		perror(error_text);
+	}else{
+		nwrite = write(recieved_file_descriptor,received_buffer, received_buffer_size);
+		if(nwrite==-1)
+		{	
+			perror(error_text);
+			exit_handler(1);
+		}
+	}
 	//print timing if requested
 	start_time_micro = start_time.tv_usec + (1000000 * start_time.tv_sec);
 	end_time_micro =  end_time.tv_usec+(1000000 * end_time.tv_sec);
 	RTT = end_time_micro-start_time_micro;
 	if(RTT_flag)
-		printf("\n\n%s\n\nReceived %ld bytes in %f microseconds.\n",received_buffer,(long)nread,RTT);
+		printf("\n\n%s\n\nReceived %ld bytes in %f miliseconds.\n",received_buffer,(long)nread,RTT/1000);
+
 
 	free(received_buffer);
 	free(directory);

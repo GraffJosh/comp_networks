@@ -22,9 +22,10 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 struct addrinfo *addr_info, *rp, *hints;
 struct sockaddr_storage incoming_addr;
 char *portnum, *error_text,*received_buffer,*send_buffer;
-char *directory,*filename;
+char *directory,*filename,*connection_type,*http_response;
 char error_status[15];
-int received_buffer_size,send_buffer_size,filename_size,directory_size,sfd,incoming_fd,true;
+int received_buffer_size,send_buffer_size,http_response_size;
+int filename_size,connection_type_size,directory_size,sfd,incoming_fd,true;
 ssize_t nread;
 socklen_t sin_size;
 int send_file_descriptor;
@@ -36,11 +37,17 @@ void exit_handler(int signal) {
 		//printf("Close Thread\n");
 		exit(0);
 		case 1://internal error
+		free(send_buffer);
+		free(received_buffer);
+		free(connection_type);
+		free(filename);
 		printf("exit on error %d\n", signal);
 		exit(1);
 		case 2://control-c
 		free(send_buffer);
 		free(received_buffer);
+		free(connection_type);
+		free(filename);
 		printf("Exit.\n");
 		exit(0);
 		case 3://thread close
@@ -66,10 +73,14 @@ int main(int argc, char *argv[])
 	received_buffer = realloc(received_buffer,sizeof(char)*received_buffer_size);
 	filename_size = 500;
 	filename = realloc(filename,sizeof(char)*filename_size);
+	connection_type_size = 500;
+	connection_type = realloc(connection_type,sizeof(char)*connection_type_size);
 	directory_size = 500;
 	directory = realloc(directory,sizeof(char)*directory_size);
-	send_buffer_size = 5000000;
+	send_buffer_size = 6000000;
 	send_buffer = realloc(send_buffer,sizeof(char)*send_buffer_size);
+	http_response_size = 250;
+	http_response = realloc(http_response,sizeof(char)*http_response_size);
 	portnum = realloc(portnum,(sizeof(char)*20));
 	hints = realloc(hints,sizeof(*hints));
 	error_text = realloc(error_text,sizeof(char)*80);
@@ -175,13 +186,16 @@ int main(int argc, char *argv[])
 		if (!fork()) { // this is the child process
 			close(sfd); // child doesn't need the listener
 			//receive data
+			memset(received_buffer, 0, received_buffer_size);
+			memset(send_buffer, 0, send_buffer_size);
+
 			nread = recv(incoming_fd, received_buffer, received_buffer_size,0);
 		if (nread == -1) 
 		{	perror("read");
 			exit_handler(EXIT_FAILURE);}
 
-			char* _file_name_position;
-			char* _file_name_end;
+			char* _file_name_position,*_connection_type_position;
+			char* _file_name_end,*_connection_type_end;
 			char _size_char[30];
 			if(strstr(received_buffer, "GET /"))
 			{
@@ -193,13 +207,39 @@ int main(int argc, char *argv[])
 					exit_handler(1);
 				}
 				memcpy(filename, _file_name_position, (_file_name_end-_file_name_position)-1);
+			}else if(strstr(received_buffer, "HEAD /"))
+			{
+				_file_name_position = strstr(received_buffer, "HEAD /") + 5;
+				_file_name_end = strstr(_file_name_position, "HTTP");
+				if(_file_name_end-_file_name_position > filename_size)
+				{
+					printf("filename too long\n");
+					exit_handler(1);
+				}
+				memcpy(filename, _file_name_position, (_file_name_end-_file_name_position)-1);
+			}		
+			if(strstr(received_buffer, "Connection: "))
+			{
+				_connection_type_position = strstr(received_buffer, "Connection: ") + 12;
+				_connection_type_end = strstr(_connection_type_position, "\r\n");
+				if(_connection_type_end-_connection_type_position > connection_type_size)
+				{
+					printf("Connection type error\n");
+					exit_handler(1);
+				}
+				memcpy(connection_type, _connection_type_position, (_connection_type_end-_connection_type_position));
 			}
+
+
+
+
 			if(strlen(filename)<=1)
 			{
 				filename = "index.html";
 			}
 
 			printf("filename:%s\n", filename);
+
 			if((send_file_descriptor = open(filename,O_RDONLY))==-1)
 			{					
 				perror(error_text);
@@ -211,11 +251,14 @@ int main(int argc, char *argv[])
 					exit_handler(1);
 				}
 
+				sprintf(http_response,"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nAccept-Ranges: bytes\r\nContent-Length: %d\r\nConnection: %s\r\n\r\n",(int)nread,connection_type);
+				send(incoming_fd, http_response, strlen(http_response),0);
 
-				send(incoming_fd, send_buffer,send_buffer_size,0);
+				if(strstr(received_buffer, "GET"))
+					send(incoming_fd, send_buffer,nread+strlen(http_response),0);
 
 			}
-
+			
 
 
 
