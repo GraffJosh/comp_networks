@@ -10,11 +10,12 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include <time.h>
+#include <sys/time.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>       
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #define true 1
 
@@ -22,11 +23,7 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 	char RTT_flag,head_flag;
 	double RTT;
 	ssize_t nread,nwrite;
-	char* URL;
-	char* portnum;
-	char* received_buffer;
-	char* directory;
-	char* hostname;
+	char* URL,*portnum,*received_buffer,*directory,*hostname,*error_text;
 	char get_request[1000];
 	char head_request[1000];
 	int received_buffer_size;
@@ -34,14 +31,47 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 	struct timeval start_time, end_time;
 	unsigned long end_time_micro, start_time_micro;
 
-void intHandler(int signal) {
-	free(received_buffer);
+void exit_handler(int signal) {
+	switch (signal)
+	{
+		case 0:
+		//printf("Close Thread\n");
+		printf("exit on error %d\n", signal);
+		exit(0);
+		case 1://internal error
+/*		free(received_buffer);
+		free(get_request);
+		free(URL);
+		free(head_request);
+		freeaddrinfo(rp);
+		freeaddrinfo(hints);*/
+		printf("exit on error %d\n", signal);
+		exit(1);
+		case 2://control-c
+/*		free(received_buffer);
+		free(get_request);
+		free(URL);
+		free(head_request);
+		freeaddrinfo(rp);
+		freeaddrinfo(hints);*/
+		printf("Exit.\n");
+		exit(0);
+		case 3://thread close
+		//printf("Close Thread\n");
+		printf("exit on error %d\n", signal);
+		exit(0);
+		default:
+		//printf("Close Thread\n");
+		printf("exit on error %d\n", signal);
+		exit(0);
+	}
+	printf("Exited.\n");
+	exit(0);
 }
-
 int main(int argc, char *argv[])
 {
     struct sigaction act;
-    act.sa_handler = intHandler;
+    act.sa_handler = exit_handler;
     sigaction(SIGINT, &act, NULL);
 
 
@@ -97,7 +127,7 @@ int main(int argc, char *argv[])
 	if(strstr(URL, "https://"))
 	{
 		printf("Sorry, does not support secured connections.\n");
-		exit(EXIT_FAILURE);
+			exit_handler(1);
 	}else if(strstr(URL, "http://"))
 		URL = strstr(URL, "http://")+7;
 		
@@ -115,7 +145,7 @@ int main(int argc, char *argv[])
 		_com_position = strstr(URL, "localhost")+9;
 	else{
 		printf("Unrecognized TLD.\n");
-		exit(EXIT_FAILURE);
+			exit_handler(1);
 	}
 	//printf("%d\n",strlen(URL) );
 	//if there is a TLD attached
@@ -132,10 +162,11 @@ int main(int argc, char *argv[])
 	if(getaddrinfo(hostname,portnum,hints,&addr_info))
 	{
 		printf("error retrieving info\n");
-		return 1;
+		exit_handler(1);
 	}
 
-/*
+
+
 //prints the IPAddr; from the text that kinnicky linked us.
 	for(rp = addr_info;rp != NULL; rp = rp->ai_next) {
 		void *addr;
@@ -155,7 +186,9 @@ int main(int argc, char *argv[])
 		inet_ntop(rp->ai_family, addr, ipstr, sizeof ipstr);
 		printf(" %s: %s\n", ipver, ipstr);
 	}
-*/
+
+
+
 
 //Get a head request to resize the buffer for the page.
 
@@ -169,11 +202,10 @@ int main(int argc, char *argv[])
 	if(addr_info == NULL)
 	{
 		printf("failed to connect\n");
-		return 1;
+			exit_handler(1);
 	}else{
 		freeaddrinfo(addr_info);
 	}
-
 
 
 	/*//get a head_request to resize the buffer
@@ -209,20 +241,22 @@ int main(int argc, char *argv[])
 
 
 	//get_request data get the actual data
+
 	if(!head_flag)
 	{
 		request_len = strlen(get_request);
-		if((status = send(sfd, get_request, request_len,0)) != request_len) 
+		if((status = send(sfd, get_request, request_len,0)) == request_len) 
 		{
+
 			fprintf(stderr, "partial/failed write\n");
-			exit(EXIT_FAILURE);
+			exit_handler(1);
 		}
 	}else{
 		request_len = strlen(head_request);
 		if((status = send(sfd, head_request, request_len,0)) != request_len) 
 		{
 			fprintf(stderr, "partial/failed write\n");
-			exit(EXIT_FAILURE);
+			exit_handler(1);
 		}
 	}
 
@@ -231,18 +265,23 @@ int main(int argc, char *argv[])
 	if (nread == -1) 
 	{
 		perror("read");
-		exit(EXIT_FAILURE);
+			exit_handler(1);
 	}
 	//close socket
 	close(sfd);
 
 
-	received_buffer[received_buffer_size] = '\0';
-	if((recieved_file_descriptor = open(directory,O_RDONLY))==-1)
-	{					
+	received_buffer[(int)nread+1] = '\0';
+	if(!strlen(directory))//if we didn't supply a filename, use a temp
+	{
+		char *temp_filename = "temp_index.html";
+		strncpy(directory,temp_filename,15);
+	}
+	if((recieved_file_descriptor = open(directory,O_CREAT|O_WRONLY, 0777))==-1)
+	{
 		perror(error_text);
 	}else{
-		nwrite = write(recieved_file_descriptor,received_buffer, received_buffer_size);
+		nwrite = write(recieved_file_descriptor,received_buffer,(size_t) nread); //write to file
 		if(nwrite==-1)
 		{	
 			perror(error_text);

@@ -16,6 +16,7 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 #include <errno.h>       
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 
 
@@ -25,7 +26,7 @@ char *portnum, *error_text,*received_buffer,*send_buffer;
 char *directory,*filename,*connection_type,*http_response;
 char error_status[15];
 int received_buffer_size,send_buffer_size,http_response_size;
-int filename_size,connection_type_size,directory_size,sfd,incoming_fd,true;
+int filename_size,connection_type_size,directory_size,sfd,incoming_fd,true,not_found;
 ssize_t nread;
 socklen_t sin_size;
 int send_file_descriptor;
@@ -100,7 +101,7 @@ int main(int argc, char *argv[])
 
 
 	//DNS lookup
-	if(getaddrinfo("localhost",portnum,hints,&addr_info))
+	if(getaddrinfo("cccwork3.wpi.edu",portnum,hints,&addr_info))
 	{
 		printf("error retrieving info\n");
 		exit_handler(1);
@@ -188,11 +189,11 @@ int main(int argc, char *argv[])
 			//receive data
 			memset(received_buffer, 0, received_buffer_size);
 			memset(send_buffer, 0, send_buffer_size);
-
+			not_found = 0;
 			nread = recv(incoming_fd, received_buffer, received_buffer_size,0);
 		if (nread == -1) 
 		{	perror("read");
-			exit_handler(EXIT_FAILURE);}
+			exit_handler(1);}
 
 			char* _file_name_position,*_connection_type_position;
 			char* _file_name_end,*_connection_type_end;
@@ -204,7 +205,7 @@ int main(int argc, char *argv[])
 				if(_file_name_end-_file_name_position > filename_size)
 				{
 					printf("filename too long\n");
-					exit_handler(1);
+					not_found = 404;
 				}
 				memcpy(filename, _file_name_position, (_file_name_end-_file_name_position)-1);
 			}else if(strstr(received_buffer, "HEAD /"))
@@ -214,7 +215,7 @@ int main(int argc, char *argv[])
 				if(_file_name_end-_file_name_position > filename_size)
 				{
 					printf("filename too long\n");
-					exit_handler(1);
+					not_found = 404;
 				}
 				memcpy(filename, _file_name_position, (_file_name_end-_file_name_position)-1);
 			}		
@@ -243,20 +244,24 @@ int main(int argc, char *argv[])
 			if((send_file_descriptor = open(filename,O_RDONLY))==-1)
 			{					
 				perror(error_text);
-			}else{
-				nread = read(send_file_descriptor,send_buffer, send_buffer_size-1);
-				if(nread==-1)
-				{	
-					perror(error_text);
-					exit_handler(1);
-				}
+				not_found = 404;
+			}
 
-				sprintf(http_response,"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nAccept-Ranges: bytes\r\nContent-Length: %d\r\nConnection: %s\r\n\r\n",(int)nread,connection_type);
+			nread = read(send_file_descriptor,send_buffer, send_buffer_size-1);
+			if(nread==-1)
+			{	
+				perror(error_text);
+				not_found = 404;
+			}	
+			if(not_found)
+			{
+				sprintf(http_response,"HTTP/1.1 404 NOT FOUND\r\nContent-Type: text/html\r\nAccept-Ranges: bytes\r\nContent-Length: %d\r\nConnection: %s\r\n\r\n",(int)nread,connection_type);
 				send(incoming_fd, http_response, strlen(http_response),0);
-
+			}else{
+				sprintf(http_response,"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nAccept-Ranges: bytes\r\nContent-Length: %d\r\nConnection: %s\r\n\r\n",(int)nread+1,connection_type);
+				send(incoming_fd, http_response, strlen(http_response),0);
 				if(strstr(received_buffer, "GET"))
 					send(incoming_fd, send_buffer,nread+strlen(http_response),0);
-
 			}
 			
 
