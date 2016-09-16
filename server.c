@@ -22,11 +22,11 @@ Programming examples found from http://beej.us/guide/bgnet/output/print/bgnet_US
 
 struct addrinfo *addr_info, *rp, *hints;
 struct sockaddr_storage incoming_addr;
-char *portnum, *error_text,*received_buffer,*send_buffer;
+char *hostname,*portnum, *error_text,*received_buffer,*send_buffer;
 char *directory,*filename,*connection_type,*http_response;
 char error_status[15];
 int received_buffer_size,send_buffer_size,http_response_size;
-int filename_size,connection_type_size,directory_size,sfd,incoming_fd,true,not_found;
+int hostname_size,portnum_size,filename_size,connection_type_size,directory_size,sfd,incoming_fd,true,not_found;
 ssize_t nread;
 socklen_t sin_size;
 int send_file_descriptor;
@@ -82,7 +82,10 @@ int main(int argc, char *argv[])
 	send_buffer = realloc(send_buffer,sizeof(char)*send_buffer_size);
 	http_response_size = 250;
 	http_response = realloc(http_response,sizeof(char)*http_response_size);
-	portnum = realloc(portnum,(sizeof(char)*20));
+	hostname_size = 250;
+	hostname = realloc(hostname,sizeof(char)*hostname_size);
+	portnum_size = 20;
+	portnum = realloc(portnum,(sizeof(char)*portnum_size));
 	hints = realloc(hints,sizeof(*hints));
 	error_text = realloc(error_text,sizeof(char)*80);
 		//Man Pages
@@ -97,11 +100,16 @@ int main(int argc, char *argv[])
 		portnum = "80";
 	}else if(argc == 2){
 		memcpy(portnum, argv[1],6);//portnum = argv[1];	//the second to last arg is the 
+	}else if(argc == 3){
+		strncpy(portnum, argv[1],portnum_size);//portnum = argv[1];	//the second to last arg is the 
+		strncpy(hostname, argv[2],hostname_size);//portnum = argv[1];	//the second to last arg is the 
 	}
 
-
+	if(!strlen(hostname))
+		gethostname(hostname,(size_t)hostname_size);
+	printf("%s\n",hostname );
 	//DNS lookup
-	if(getaddrinfo("cccwork3.wpi.edu",portnum,hints,&addr_info))
+	if(getaddrinfo(hostname,portnum,hints,&addr_info))
 	{
 		printf("error retrieving info\n");
 		exit_handler(1);

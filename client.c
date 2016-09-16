@@ -154,8 +154,8 @@ int main(int argc, char *argv[])
 	if(directory[0] == '/')
 		memmove(directory, directory+1,strlen(directory));
 	//construct the head request
-	sprintf(head_request, "HEAD /%s HTTP/1.0\r\nHost: %s\r\nConnection: Keep-Alive\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
-	sprintf(get_request, "GET /%s HTTP/1.0\r\nHost: %s\r\nConnection: close\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
+	sprintf(head_request, "HEAD /%s HTTP/1.1\r\nHost: %s\r\nConnection: Keep-Alive\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
+	sprintf(get_request, "GET /%s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\nUser-Agent: Mobile/7B405\r\n\r\n",directory, hostname);
 	
 
 	//DNS lookup
@@ -245,7 +245,7 @@ int main(int argc, char *argv[])
 	if(!head_flag)
 	{
 		request_len = strlen(get_request);
-		if((status = send(sfd, get_request, request_len,0)) == request_len) 
+		if((status = send(sfd, get_request, request_len,0)) != request_len) 
 		{
 
 			fprintf(stderr, "partial/failed write\n");
