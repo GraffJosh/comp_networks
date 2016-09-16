@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 	end_time_micro =  end_time.tv_usec+(1000000 * end_time.tv_sec);
 	RTT = end_time_micro-start_time_micro;
 	if(RTT_flag)
-		printf("\n\n%s\n\nReceived %ld bytes in %f miliseconds.\n",received_buffer,(long)nread,RTT/1000);
+		printf("\n\nReceived %ld bytes in %f miliseconds.\n",received_buffer,(long)nread,RTT/1000);
 
 
 	free(received_buffer);
