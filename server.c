@@ -45,6 +45,7 @@ void exit_handler(int signal) {
 		printf("exit on error %d\n", signal);
 		exit(1);
 		case 2://control-c
+		close(sfd);
 		free(send_buffer);
 		free(received_buffer);
 		free(connection_type);

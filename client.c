@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 		printf("acceptable flags\n\'-h\'print this help message\n");
 		printf("\'-p\'print RTT and data received as text\n");
 		printf("\'-c\'send only a head request to server\n");
-		return 1;	
+		exit_handler(0);	
 	}else if(argc == 2){
 		URL = argv[argc-1];	//the second to last arg is the 
 		portnum = "80";
@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
 				printf("acceptable flags\n\'-h\'print this help message\n");
 				printf("\'-p\'print RTT and data received as text\n");
 				printf("\'-c\'send only a head request to server\n");
+				exit_handler(0);	
 			}
 		}
 	}
@@ -167,7 +168,7 @@ int main(int argc, char *argv[])
 
 
 
-//prints the IPAddr; from the text that kinnicky linked us.
+/*//prints the IPAddr; from the text that kinnicky linked us.
 	for(rp = addr_info;rp != NULL; rp = rp->ai_next) {
 		void *addr;
 		char *ipver;
@@ -186,17 +187,25 @@ int main(int argc, char *argv[])
 		inet_ntop(rp->ai_family, addr, ipstr, sizeof ipstr);
 		printf(" %s: %s\n", ipver, ipstr);
 	}
-
+*/
 
 
 
 //Get a head request to resize the buffer for the page.
 
 	//open local socket according to the parameters specified previously
-	sfd = socket(addr_info->ai_family, addr_info->ai_socktype,addr_info->ai_protocol);
+	if((sfd = socket(addr_info->ai_family, addr_info->ai_socktype,addr_info->ai_protocol)) == -1)
+	{
+		perror(error_text);
+		exit_handler(1);
+	}
 	//connect to remote host (and time it)
 	gettimeofday(&start_time,NULL);
-	if (connect(sfd, addr_info->ai_addr, addr_info->ai_addrlen) != -1) //we're connected
+	if (connect(sfd, addr_info->ai_addr, addr_info->ai_addrlen) == -1) //we're connected
+	{
+		perror(error_text);
+		exit_handler(1);
+	}
 	gettimeofday(&end_time,NULL);
 
 	if(addr_info == NULL)
@@ -293,7 +302,7 @@ int main(int argc, char *argv[])
 	end_time_micro =  end_time.tv_usec+(1000000 * end_time.tv_sec);
 	RTT = end_time_micro-start_time_micro;
 	if(RTT_flag)
-		printf("\n\nReceived %ld bytes in %f miliseconds.\n",received_buffer,(long)nread,RTT/1000);
+		printf("\n\nReceived %ld bytes in %f miliseconds.\n",(long)nread,RTT/1000);
 
 
 	free(received_buffer);
