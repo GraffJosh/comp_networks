@@ -39,7 +39,6 @@
 // to the remote layer 5 via the students transport level protocol entities.  
 
 #define  MESSAGE_LENGTH  20
-int    TraceLevel = 0;          // Defines the default level of debugging 
 
 struct msg {
     char  data[MESSAGE_LENGTH];
@@ -130,5 +129,12 @@ int getTimerStatus( int AorB );
 manages the FSM thread for A.
 */
 void A_FSM();
+
+/*
+manages packet sending.
+*/
+int a_send_pkt(int seqnum, int acknum, int checksum, char* data);
+int b_send_pkt(int seqnum, int acknum, int checksum, char* data);
+
 
 #endif

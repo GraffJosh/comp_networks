@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/sem.h>
 #include <sys/types.h>
 #include "project2.h"
+#define JPGTRACE 3
  
 /* ***************************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -20,7 +22,7 @@
    Compile as gcc -g project2.c student2.c -o p2
 **********************************************************************/
 int  num_queued;
-int a_ack_recevied;
+int a_pkt_received,a_seq_recevied,last_seq_sent;
 char *ack_str = "THIS IS AN ACK";
 char *nack_str = "THIS IS A NACK";
 char queued_message[MAX_QUEUED][sizeof(struct msg)];
@@ -44,16 +46,17 @@ int ack_len = 14;
 void A_output(struct msg message) {
 	int i = 0;
 	struct pkt packet;
-
-	if(a_ack_recevied){
-		a_ack_recevied = FALSE;
-		packet.seqnum 		= 0;
-		packet.acknum 		= 0;
-		packet.checksum 	= 0;
-		memcpy(&packet.payload, message.data,sizeof(char)*MESSAGE_LENGTH);
-		tolayer3(AEntity,packet);
+	if(JPGTRACE >=3)
+		printf("seq Expected: %d | seq Received: %d\n", last_seq_sent, a_seq_recevied);
+	if(a_seq_recevied == last_seq_sent)
+	{
+		last_seq_sent = last_seq_sent + 1;
+		a_send_pkt(last_seq_sent,1,0,message.data);
+		if (JPGTRACE >= 3)
+		{
+			printf("A SENT SEQNUM: %d\n",last_seq_sent );
+		}
 	}
-
 }
 
 /*
@@ -72,10 +75,19 @@ void B_output(struct msg message)  {
  * packet is the (possibly corrupted) packet sent from the B-side.
  */
 void A_input(struct pkt packet) {
-
-	if (strncmp(packet.payload, ack_str,ack_len))
+	if (JPGTRACE >=5)
 	{
-		a_ack_recevied = TRUE;
+		printf("RECEIVED  A\n");
+	}
+	
+		
+	if (strstr(packet.payload, ack_str))
+	{
+
+		a_seq_recevied = packet.seqnum;
+		a_pkt_received = packet.acknum;
+		if(JPGTRACE >=3)
+			printf("A RECEIVED SEQNUM: %d\n", packet.seqnum);
 	}
 
 }
@@ -83,7 +95,7 @@ void A_input(struct pkt packet) {
 /*
  * A_timerinterrupt()  This routine will be called when A's timer expires 
  * (thus generating a timer interrupt). You'll probably want to use this 
- * routine to control the retransmission of packets. See starttimer() 
+ * routine to control the retransmission	 of packets. See starttimer() 
  * and stoptimer() in the writeup for how the timer is started and stopped.
  */
 void A_timerinterrupt() {
@@ -93,17 +105,9 @@ void A_timerinterrupt() {
 /* The following routine will be called once (only) before any other    */
 /* entity A routines are called. You can use it to do any initialization */
 void A_init() {
-	a_ack_recevied = 0;
+	a_seq_recevied = 0;
+	last_seq_sent = 0;
 	num_queued = 0;
-
-	if(!fork())
-	{
-
-	}else{
-		if(TraceLevel >= 3)
-			printf("in child process\n");
-		A_FSM();
-	}
 	
 }
 
@@ -123,6 +127,12 @@ void B_input(struct pkt packet) {
 
 	memcpy(&message.data,&packet.payload,sizeof(struct msg));
 	tolayer5(BEntity,message);
+
+	if (JPGTRACE >= 3)
+	{
+		printf("B RECEIVED SEQNUM: %d\n", packet.seqnum);
+	}
+	b_send_pkt(packet.seqnum,packet.acknum,0,ack_str);
 }
 
 /*

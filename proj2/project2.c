@@ -97,6 +97,7 @@ int    NumMsgsLost       = 0;   // number lost in media
 int    NumMsgsCorrupt    = 0;   // number corrupted by media
 int    NumMsgsOutOfOrder = 0;   // Number messages MAYBE out of order 
 int    NumSimultaneousMsgs= 0;   // How many messages simultaneously in media
+int    TraceLevel = 0;          // Defines the default level of debugging 
 
 // These are sequence numbers used by calling and receiving application layers
 int    GeneratingSeqNum[2] = { 0, 0};  // An array for A side and B side
