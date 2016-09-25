@@ -40,8 +40,29 @@
 
 #define  MESSAGE_LENGTH  20
 
+char *ack_str;
+char *nack_str;
+enum fsm_state
+{
+  wait_for_call_0,
+  wait_for_ack_0,
+  wait_for_call_1,
+  wait_for_ack_1  
+};
+
+
 struct msg {
     char  data[MESSAGE_LENGTH];
+};
+
+
+/*
+FIFO queue for buffering
+*/
+struct buffer{
+  struct buffer *prev;
+  struct buffer *next;
+  struct msg message;
 };
 
 // A packet is the data unit passed from layer 4 (student's Transport Layer
@@ -126,15 +147,32 @@ int getTimerStatus( int AorB );
 
 
 /*
-manages the FSM thread for A.
+manage the finite state machines for a and b.
 */
-void A_FSM();
+void a_fsm();
+void b_fsm();
+
+//initializes values for fsms.
+void init_a();
+void init_b();
+
 
 /*
-manages packet sending.
+manages packet sending and receiving
 */
 int a_send_pkt(int seqnum, int acknum, int checksum, char* data);
 int b_send_pkt(int seqnum, int acknum, int checksum, char* data);
+void a_receive_pkt(struct pkt packet);
+void b_receive_pkt(struct pkt packet);
 
+/*
+manages packet queue (buffer).
+*/
+struct msg a_pop_message();
+void a_push_message(struct msg *message);
 
+//calculates the checksum for a given set of data
+int calc_checksum(char* message);
+//prints debug messages if the trace level is high enough
+void debug(char* debug_message, int trace_level);
 #endif

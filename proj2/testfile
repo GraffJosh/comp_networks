@@ -1,0 +1,20 @@
+#!/usr/bin/expect
+spawn ./project2
+expect ":"
+send "10\n"
+expect ":"
+send "0\n"
+expect ":"
+send "0\n"
+expect ":"
+send ".5\n"
+expect ":"
+send "1000\n"
+expect ":"
+send "0\n"
+expect ":"
+send "0\n"
+expect ":"
+send "0\n"
+# turn it back over to interactive user
+interact

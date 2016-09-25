@@ -21,10 +21,7 @@
 
    Compile as gcc -g project2.c student2.c -o p2
 **********************************************************************/
-int  num_queued;
-int a_pkt_received,a_seq_recevied,last_seq_sent;
-char *ack_str = "THIS IS AN ACK";
-char *nack_str = "THIS IS A NACK";
+char debugmsg[MESSAGE_LENGTH];
 char queued_message[MAX_QUEUED][sizeof(struct msg)];
 int ack_len = 14;
 
@@ -45,18 +42,10 @@ int ack_len = 14;
  */
 void A_output(struct msg message) {
 	int i = 0;
-	struct pkt packet;
-	if(JPGTRACE >=3)
-		printf("seq Expected: %d | seq Received: %d\n", last_seq_sent, a_seq_recevied);
-	if(a_seq_recevied == last_seq_sent)
-	{
-		last_seq_sent = last_seq_sent + 1;
-		a_send_pkt(last_seq_sent,1,0,message.data);
-		if (JPGTRACE >= 3)
-		{
-			printf("A SENT SEQNUM: %d\n",last_seq_sent );
-		}
-	}
+
+	a_push_message(&message);
+
+	a_fsm();
 }
 
 /*
@@ -75,21 +64,11 @@ void B_output(struct msg message)  {
  * packet is the (possibly corrupted) packet sent from the B-side.
  */
 void A_input(struct pkt packet) {
-	if (JPGTRACE >=5)
-	{
-		printf("RECEIVED  A\n");
-	}
-	
-		
-	if (strstr(packet.payload, ack_str))
-	{
 
-		a_seq_recevied = packet.seqnum;
-		a_pkt_received = packet.acknum;
-		if(JPGTRACE >=3)
-			printf("A RECEIVED SEQNUM: %d\n", packet.seqnum);
-	}
-
+	sprintf(debugmsg,"RECEIVED A\n");
+	debug(debugmsg,5);
+	a_receive_pkt(packet);
+	a_fsm();
 }
 
 /*
@@ -105,10 +84,9 @@ void A_timerinterrupt() {
 /* The following routine will be called once (only) before any other    */
 /* entity A routines are called. You can use it to do any initialization */
 void A_init() {
-	a_seq_recevied = 0;
-	last_seq_sent = 0;
-	num_queued = 0;
-	
+	ack_str = "THIS IS AN ACK";
+ 	nack_str= "THIS IS A NACK";
+ 	init_a();
 }
 
 
@@ -123,16 +101,10 @@ void A_init() {
  * packet is the (possibly corrupted) packet sent from the A-side.
  */
 void B_input(struct pkt packet) {
-	struct msg message;
-
-	memcpy(&message.data,&packet.payload,sizeof(struct msg));
-	tolayer5(BEntity,message);
-
-	if (JPGTRACE >= 3)
-	{
-		printf("B RECEIVED SEQNUM: %d\n", packet.seqnum);
-	}
-	b_send_pkt(packet.seqnum,packet.acknum,0,ack_str);
+	sprintf(debugmsg,"RECEIVED B\n");
+	debug(debugmsg,5);
+	b_receive_pkt(packet);
+	b_fsm();
 }
 
 /*
@@ -149,5 +121,33 @@ void  B_timerinterrupt() {
  * entity B routines are called. You can use it to do any initialization 
  */
 void B_init() {
+	ack_str = "THIS IS AN ACK";
+ 	nack_str= "THIS IS A NACK";
 }
 
+//calculates the checksum for a given set of data
+int calc_checksum(char* message)
+{	
+	int checksum,i=MESSAGE_LENGTH/2;
+	checksum = 0;
+	char tempmsg[MESSAGE_LENGTH];
+	memcpy(tempmsg,message,MESSAGE_LENGTH);
+	int *messageptr = &tempmsg;
+
+	while(i-- != 0)
+	{
+		checksum -= *messageptr;
+	}
+	return checksum;
+}
+
+//prints debug messages if the trace level is high enough
+void debug(char* debug_message, int trace_level)
+{
+	if (JPGTRACE >= trace_level)
+	{
+		printf("debug: %s\n", debug_message);
+		/* code */
+	}
+	
+}
