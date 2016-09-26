@@ -7,7 +7,7 @@ expect ":"
 send "0\n"	
 			#loss
 expect ":"
-send "0.1\n"
+send "0.0\n"
 			#corrupt
 expect ":"
 send ".5\n"

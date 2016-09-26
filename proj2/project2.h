@@ -160,19 +160,19 @@ void init_b();
 /*
 manages packet sending and receiving
 */
-int a_send_pkt(int seqnum, int acknum, struct msg data);
-int b_send_pkt(int seqnum, int acknum, struct msg data);
+int a_send_pkt(int seqnum, int acknum, char* data);
+int b_send_pkt(int seqnum, int acknum, char* data);
 void a_receive_pkt(struct pkt packet);
 void b_receive_pkt(struct pkt packet);
 
 /*
 manages packet queue (buffer).
 */
-struct msg get_nessage();
+char* get_nessage();
 void a_push_message(struct msg message);
 
 //calculates the checksum for a given set of data
-int calc_checksum(char* message);
+int calc_checksum(char* message, int len);
 //prints debug messages if the trace level is high enough
 void debug(char* debug_message, int trace_level);
 #endif

@@ -8,10 +8,10 @@
 enum fsm_state a_state = wait_for_call_0;
 struct msg *ack,*nack;
 struct buffer *a_buffer,*a_buffer_last,*newbuffer;
-int a_buffer_length=0;
+int a_buffer_length=0,new_received;
 char debugmsg[MESSAGE_LENGTH],a_data_received[MESSAGE_LENGTH];
 int a_ack_received,a_seq_recevied,a_chk_received,last_chk_received,last_seq_sent;
-
+struct pkt *send_packet;
 
 
 
@@ -43,15 +43,15 @@ void a_push_message(struct msg message)
 
 //pops a message from the a queue
 //returns that message (with data)
-struct msg get_message()
+char* get_message()
 {/*
 	struct msg pop_msg;
 	memcpy(&pop_msg,&a_buffer[0],sizeof(struct msg));
 	return pop_msg;*/
 	//free(a_buffer);
 
-	printf("get: %s, chk: %d\n",a_buffer->message.data,calc_checksum(a_buffer->message.data));
-	return a_buffer->message;
+	printf("get: %s, chk: %d\n",a_buffer->message.data,calc_checksum(a_buffer->message.data,MESSAGE_LENGTH));
+	return a_buffer->message.data;
 }
 
 //deletes the top of the queue when we receive an ACK
@@ -61,6 +61,7 @@ void delete_message()
 	printf("delete: %s\n",a_buffer->message.data );
 
 	a_buffer_length = a_buffer_length - 1;
+	printf("bufferlen: %d\n", a_buffer_length);
 	if(a_buffer_length > 1)
 	{
 		delete_buffer = a_buffer;
@@ -83,16 +84,16 @@ void delete_message()
 
 }
 
-int a_send_pkt(int seqnum, int acknum, struct msg data)
+int a_send_pkt(int seqnum, int acknum, char* data)
 {
-	struct pkt packet;
-	memset(packet.payload, 0,MESSAGE_LENGTH-1);
-	packet.seqnum 		= seqnum;
-	packet.acknum 		= acknum;
-	packet.checksum 	= calc_checksum(data.data);
-	memcpy(&packet.payload, &data.data,MESSAGE_LENGTH);
-	tolayer3(AEntity,packet);
-	sprintf(debugmsg,"A SENT: %s\n",data.data);
+	send_packet = realloc(send_packet, sizeof(struct pkt));
+	memset(send_packet->payload, 0,MESSAGE_LENGTH);
+	send_packet->seqnum 		= seqnum;
+	send_packet->acknum 		= acknum;
+	send_packet->checksum 	= calc_checksum(data,MESSAGE_LENGTH);
+	memcpy(send_packet->payload, data,MESSAGE_LENGTH);
+	tolayer3(AEntity,*send_packet);
+	sprintf(debugmsg,"A SENT: %s\n",data);
 	debug(debugmsg,5);
 }
 
@@ -101,13 +102,14 @@ void a_receive_pkt(struct pkt packet)
 {
 
 	last_chk_received = a_chk_received;
+	memcpy(a_data_received, packet.payload,14);
 	a_seq_recevied = packet.seqnum;
-	a_ack_received = packet.acknum;
-	a_chk_received = packet.checksum;
-	memcpy(&a_data_received, packet.payload,MESSAGE_LENGTH);
+	a_ack_received = packet.acknum;	
+	a_chk_received = packet.checksum - calc_checksum(a_data_received,14);
 	sprintf(debugmsg,"A Received checksum: %d\n",a_chk_received);
-	debug(debugmsg,3);
-	printf("data Areceved: %s\n",a_data_received);
+	debug(debugmsg,5);
+	printf("data Areceved: %s seq: %d chk: %d vs calc: %d\n",a_data_received, a_seq_recevied, packet.checksum, calc_checksum(a_data_received,14));
+	new_received = TRUE;
 }
 
 void a_fsm()
@@ -117,10 +119,7 @@ void a_fsm()
 		case wait_for_call_0:
 			if (a_buffer_length >= 1)
 			{
-				struct msg message;
-				memset(message.data, 0,MESSAGE_LENGTH-1);
-				message = get_message();
-				a_send_pkt(0,0,message);			//send a message
+				a_send_pkt(0,0,get_message());			//send a message
 				last_seq_sent = 0;	
 				sprintf(debugmsg,"A SENT SEQNUM: %d\n",0);
 				debug(debugmsg,5);
@@ -128,29 +127,31 @@ void a_fsm()
 			}
 		break;
 		case wait_for_ack_0:	
-			sprintf(debugmsg,"A0 ack seq Expected: %d | seq Received: %d | Ack Received: %d\n", last_seq_sent, a_seq_recevied, a_ack_received);
-			debug(debugmsg,3);
-			sprintf(debugmsg,"A0 checksum Expected: %d | checksum Received: %d \n", a_chk_received, calc_checksum(a_data_received));
-			debug(debugmsg,3);	
-			if(a_seq_recevied == 0 && a_ack_received == 1 && a_chk_received == calc_checksum(a_data_received))
+			if(new_received)
 			{
-				if(a_buffer_length)
-					delete_message();
-				a_state = wait_for_call_1;
-			}else{
-				sprintf(debugmsg,"resending 0!");
-				debug(debugmsg,3);
-				a_state = wait_for_call_0;
-				a_fsm();
+				sprintf(debugmsg,"A0 ack seq Expected: %d | seq Received: %d | Ack Received: %d\n", last_seq_sent, a_seq_recevied, a_ack_received);
+				debug(debugmsg,5);
+				sprintf(debugmsg,"A0 checksum Expected: %d | checksum Received: %d \n", a_chk_received, calc_checksum(a_data_received,MESSAGE_LENGTH));
+				debug(debugmsg,5);	
+				if(a_seq_recevied == 0 && a_ack_received == 1 && a_chk_received == 0)
+				{
+					if(a_buffer_length)
+						delete_message();
+					a_state = wait_for_call_1;
+				}else{
+
+					sprintf(debugmsg,"Resend0 because: Seq: %d, Ack: %d, Chk: %d\n", a_seq_recevied,a_ack_received,a_chk_received );
+					debug(debugmsg,3);
+					a_state = wait_for_call_0;
+					a_fsm();
+				}
+				new_received = FALSE;
 			}
 		break;
 		case wait_for_call_1:
 			if (a_buffer_length >= 1)
 			{
-				struct msg message;
-				memset(message.data, 0,MESSAGE_LENGTH-1);
-				message = get_message();
-				a_send_pkt(1,0,message);			//send a message
+				a_send_pkt(1,0,get_message());			//send a message
 				last_seq_sent = 1;
 				sprintf(debugmsg,"A SENT SEQNUM: %d\n",1);
 				debug(debugmsg,5);
@@ -158,20 +159,24 @@ void a_fsm()
 			}
 		break;
 		case wait_for_ack_1:
-			sprintf(debugmsg,"A1 ack seq Expected: %d | seq Received: %d | Ack Received: %d\n", last_seq_sent, a_seq_recevied, a_ack_received);
-			debug(debugmsg,3);
-			sprintf(debugmsg,"A1 checksum Expected: %d | checksum Received: %d \n", a_chk_received, calc_checksum(a_data_received));
-			debug(debugmsg,3);	
-			if(a_seq_recevied == 1 && a_ack_received == 1 && a_chk_received == calc_checksum(a_data_received))
+			if(new_received)
 			{
-				if(a_buffer_length)
-					delete_message();
-				a_state = wait_for_call_0;
-			}else{
-				sprintf(debugmsg,"resending 1!");
-				debug(debugmsg,3);
-				a_state = wait_for_call_1;
-				a_fsm();
+				sprintf(debugmsg,"A1 ack seq Expected: %d | seq Received: %d | Ack Received: %d\n", last_seq_sent, a_seq_recevied, a_ack_received);
+				debug(debugmsg,5);
+				sprintf(debugmsg,"A1 checksum Expected: %d | checksum Received: %d \n", a_chk_received, calc_checksum(a_data_received,MESSAGE_LENGTH));
+				debug(debugmsg,5);	
+				if(a_seq_recevied == 1 && a_ack_received == 1 && a_chk_received == 0)
+				{
+					if(a_buffer_length)
+						delete_message();
+					a_state = wait_for_call_0;
+				}else{
+					sprintf(debugmsg,"Resend0 because: Seq: %d, Ack: %d, Chk: %d\n", a_seq_recevied,a_ack_received,a_chk_received );
+					debug(debugmsg,3);
+					a_state = wait_for_call_1;
+					a_fsm();
+				}
+				new_received = FALSE;
 			}
 
 		break;
@@ -183,6 +188,7 @@ void a_fsm()
 //initializes values for a.
 void init_a()
 {
+	send_packet = realloc(send_packet,MESSAGE_LENGTH);
 	a_buffer = realloc(a_buffer, sizeof(struct msg));
 	a_buffer_last = a_buffer;
 	ack = (struct msg*)malloc(sizeof(struct msg));
