@@ -11,7 +11,7 @@ struct buffer *a_buffer,*a_buffer_last,*newbuffer;
 int a_buffer_length=0,new_received;
 char debugmsg[MESSAGE_LENGTH],a_data_received[MESSAGE_LENGTH];
 int a_ack_received,a_seq_recevied,a_chk_received,last_chk_received,last_seq_sent;
-struct pkt *send_packet;
+struct pkt *a_send_packet;
 
 
 
@@ -74,7 +74,6 @@ void delete_message()
 	{
 		delete_buffer = a_buffer;
 		a_buffer = a_buffer->next;
-		a_buffer->prev = NULL;
 		free(delete_buffer);
 	}else if(a_buffer_length == 0)
 	{
@@ -86,13 +85,13 @@ void delete_message()
 
 int a_send_pkt(int seqnum, int acknum, char* data)
 {
-	send_packet = realloc(send_packet, sizeof(struct pkt));
-	memset(send_packet->payload, 0,MESSAGE_LENGTH);
-	send_packet->seqnum 		= seqnum;
-	send_packet->acknum 		= acknum;
-	send_packet->checksum 	= calc_checksum(data,MESSAGE_LENGTH);
-	memcpy(send_packet->payload, data,MESSAGE_LENGTH);
-	tolayer3(AEntity,*send_packet);
+	a_send_packet = realloc(a_send_packet, sizeof(struct pkt));
+	memset(a_send_packet->payload, 0,MESSAGE_LENGTH);
+	memcpy(a_send_packet->payload, data,MESSAGE_LENGTH);
+	a_send_packet->seqnum 		= seqnum;
+	a_send_packet->acknum 		= acknum;
+	a_send_packet->checksum 	= calc_checksum(a_send_packet->payload,MESSAGE_LENGTH);
+	tolayer3(AEntity,*a_send_packet);
 	sprintf(debugmsg,"A SENT: %s\n",data);
 	debug(debugmsg,5);
 }
@@ -105,7 +104,7 @@ void a_receive_pkt(struct pkt packet)
 	memcpy(a_data_received, packet.payload,14);
 	a_seq_recevied = packet.seqnum;
 	a_ack_received = packet.acknum;	
-	a_chk_received = packet.checksum - calc_checksum(a_data_received,14);
+	a_chk_received = packet.checksum - calc_checksum(packet.payload,MESSAGE_LENGTH);
 	sprintf(debugmsg,"A Received checksum: %d\n",a_chk_received);
 	debug(debugmsg,5);
 	printf("data Areceved: %s seq: %d chk: %d vs calc: %d\n",a_data_received, a_seq_recevied, packet.checksum, calc_checksum(a_data_received,14));
@@ -188,7 +187,7 @@ void a_fsm()
 //initializes values for a.
 void init_a()
 {
-	send_packet = realloc(send_packet,MESSAGE_LENGTH);
+	a_send_packet = realloc(a_send_packet,MESSAGE_LENGTH);
 	a_buffer = realloc(a_buffer, sizeof(struct msg));
 	a_buffer_last = a_buffer;
 	ack = (struct msg*)malloc(sizeof(struct msg));

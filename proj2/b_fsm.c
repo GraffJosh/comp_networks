@@ -11,6 +11,8 @@ char debugmsg[MESSAGE_LENGTH],*b_data_received;
 int b_seq_received,b_ack_received,b_chk_received,last_chk_received,ack_len;
 char *nack,*ack;
 struct pkt bsendpkt;
+struct pkt *b_send_packet;
+
 
 int b_send_pkt(int seqnum, int acknum, char* data)
 {
@@ -24,7 +26,7 @@ int b_send_pkt(int seqnum, int acknum, char* data)
 	sprintf(debugmsg,"B send seqnum: %d\n",bsendpkt.seqnum);
 	debug(debugmsg,5);
 */
-	struct pkt *packet;
+/*	struct pkt *packet;
 	packet = malloc(sizeof(struct pkt));
 	memset(packet, 0,sizeof(struct pkt));
 	memset(packet->payload, 0, MESSAGE_LENGTH);
@@ -35,7 +37,16 @@ int b_send_pkt(int seqnum, int acknum, char* data)
 	tolayer3(BEntity,*packet);
 	sprintf(debugmsg,"B SENT: %s Seq: %d\n",data, packet->seqnum);
 	debug(debugmsg,3);
-	free(packet);
+	free(packet);*/
+	b_send_packet = realloc(b_send_packet, sizeof(struct pkt));
+	memset(b_send_packet->payload, 0,MESSAGE_LENGTH);
+	memcpy(b_send_packet->payload, data,MESSAGE_LENGTH);
+	b_send_packet->seqnum 			= seqnum;
+	b_send_packet->acknum 			= acknum;
+	b_send_packet->checksum 		= calc_checksum(b_send_packet->payload,MESSAGE_LENGTH);
+	tolayer3(BEntity,*b_send_packet);
+	sprintf(debugmsg,"B SENT: %s\n",b_send_packet->payload);
+	debug(debugmsg,5);
 }
 
 void b_receive_pkt(struct pkt packet)
@@ -130,6 +141,7 @@ void init_b(){
 	memcpy(ack.data, ack_str,ack_len);
 	memcpy(nack.data, nack_str,ack_len);
 */
+	b_send_packet = realloc(b_send_packet,MESSAGE_LENGTH);
 	b_data_received = realloc(b_data_received,MESSAGE_LENGTH);
 	ack_len = MESSAGE_LENGTH;
 	ack = realloc(ack, ack_len);
