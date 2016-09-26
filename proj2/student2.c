@@ -43,7 +43,7 @@ int ack_len = 14;
 void A_output(struct msg message) {
 	int i = 0;
 
-	a_push_message(&message);
+	a_push_message(message);
 
 	a_fsm();
 }
@@ -84,8 +84,8 @@ void A_timerinterrupt() {
 /* The following routine will be called once (only) before any other    */
 /* entity A routines are called. You can use it to do any initialization */
 void A_init() {
-	ack_str = "THIS IS AN ACK";
- 	nack_str= "THIS IS A NACK";
+	ack_str = "THIS IS AN ACK01";
+ 	nack_str= "THIS IS A NACK01";
  	init_a();
 }
 
@@ -121,23 +121,27 @@ void  B_timerinterrupt() {
  * entity B routines are called. You can use it to do any initialization 
  */
 void B_init() {
-	ack_str = "THIS IS AN ACK";
- 	nack_str= "THIS IS A NACK";
+	ack_str = "THIS IS AN ACK01";
+ 	nack_str= "THIS IS A NACK01";
+ 	init_b();  
 }
 
 //calculates the checksum for a given set of data
 int calc_checksum(char* message)
 {	
-	int checksum,i=MESSAGE_LENGTH/2;
+	int checksum,i;
 	checksum = 0;
-	char tempmsg[MESSAGE_LENGTH];
-	memcpy(tempmsg,message,MESSAGE_LENGTH);
-	int *messageptr = &tempmsg;
-
-	while(i-- != 0)
+	unsigned char tempmsg[(sizeof(char)*MESSAGE_LENGTH)];
+	memcpy(tempmsg,message,(sizeof(char)*MESSAGE_LENGTH));
+	unsigned char *messageptr = &tempmsg;
+	for(i = 0;i<(sizeof(char)*MESSAGE_LENGTH);i++)
 	{
-		checksum -= *messageptr;
+
+		checksum += messageptr[i];
+		checksum += messageptr[(sizeof(char)*MESSAGE_LENGTH)-1];
 	}
+	sprintf(debugmsg,"message: %s, checksum: %d\n",messageptr, checksum );
+	debug(debugmsg,5);
 	return checksum;
 }
 

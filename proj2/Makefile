@@ -4,7 +4,7 @@ DEPS = project2.h
 OBJ = project2.o student2.o a_fsm.o b_fsm.o
 
 %.o: %.c $(DEPS)
-	clear
+	reset
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 project2: $(OBJ)

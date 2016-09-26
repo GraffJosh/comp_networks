@@ -160,16 +160,16 @@ void init_b();
 /*
 manages packet sending and receiving
 */
-int a_send_pkt(int seqnum, int acknum, int checksum, char* data);
-int b_send_pkt(int seqnum, int acknum, int checksum, char* data);
+int a_send_pkt(int seqnum, int acknum, struct msg data);
+int b_send_pkt(int seqnum, int acknum, struct msg data);
 void a_receive_pkt(struct pkt packet);
 void b_receive_pkt(struct pkt packet);
 
 /*
 manages packet queue (buffer).
 */
-struct msg a_pop_message();
-void a_push_message(struct msg *message);
+struct msg get_nessage();
+void a_push_message(struct msg message);
 
 //calculates the checksum for a given set of data
 int calc_checksum(char* message);
