@@ -4,7 +4,6 @@
 #include <sys/sem.h>
 #include "project2.h"
 
-#define JPGTRACE 3
 
 enum fsm_state b_state = wait_for_call_0;
 char debugmsg[MESSAGE_LENGTH],*b_data_received;
@@ -43,7 +42,7 @@ int b_send_pkt(int seqnum, int acknum, char* data)
 	memcpy(b_send_packet->payload, data,MESSAGE_LENGTH);
 	b_send_packet->seqnum 			= seqnum;
 	b_send_packet->acknum 			= acknum;
-	b_send_packet->checksum 		= calc_checksum(b_send_packet->payload,MESSAGE_LENGTH);
+	b_send_packet->checksum 		= calc_checksum(b_send_packet->payload,b_send_packet->seqnum,b_send_packet->acknum, MESSAGE_LENGTH);
 	tolayer3(BEntity,*b_send_packet);
 	sprintf(debugmsg,"B SENT: %s\n",b_send_packet->payload);
 	debug(debugmsg,5);
@@ -55,8 +54,8 @@ void b_receive_pkt(struct pkt packet)
 	strncpy(b_data_received, packet.payload,MESSAGE_LENGTH);
 	b_seq_received = packet.seqnum;
 	b_ack_received = packet.acknum;
-	b_chk_received = packet.checksum - calc_checksum(packet.payload,MESSAGE_LENGTH);
-	sprintf(debugmsg,"B Received %d data: %s, b_chk: %d vs %d == %d\n",b_seq_received,b_data_received, packet.checksum, calc_checksum(packet.payload,MESSAGE_LENGTH), b_chk_received);
+	b_chk_received = packet.checksum - calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH);
+	sprintf(debugmsg,"B Received %d data: %s, b_chk: %d vs %d == %d\n",b_seq_received,b_data_received, packet.checksum, calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH), b_chk_received);
 	debug(debugmsg,3);
 
 }
@@ -86,31 +85,31 @@ void b_fsm()
 				struct msg message;
 				sprintf(debugmsg,"B0 received corrupt packet in 0!chk: %d\n", b_chk_received);
 				debug(debugmsg,3);
-				sprintf(debugmsg,"B sent: nack0");
+				sprintf(debugmsg,"B0 sent: nack0");
 				debug(debugmsg,3);
 				tolayer3(1,nack0);
 				//b_send_pkt(b_seq_received,2,nack);
-				b_state = wait_for_call_0;
+				//b_state = wait_for_call_0;
 			}else if(b_seq_received ==1 && b_chk_received == 0)
 			{
 				struct msg message;
 				memcpy(&message.data, &b_data_received,MESSAGE_LENGTH);
 				sprintf(debugmsg,"B0 received duplicate: %d\n", b_chk_received);
 				debug(debugmsg,3);
-				sprintf(debugmsg,"B sent: ack1");
+				sprintf(debugmsg,"B0 sent: ack1");
 				debug(debugmsg,3);
 				tolayer3(1,ack1);
 				//b_send_pkt(1,1,ack);
 				b_state = wait_for_call_0;
 			}else{
-				sprintf(debugmsg,"B sent: nack0 for unknown reasons");
+				sprintf(debugmsg,"B0 sent: nack0 for unknown reasons");
 				debug(debugmsg,3);
 				tolayer3(1,nack0);
 			}
 
 			sprintf(debugmsg,"B0 expected seqnum: %d || received seqnum: %d \n", 1, b_seq_received);
 			debug(debugmsg,5);
-			sprintf(debugmsg,"B0 expected checksum: %d || received checksum: %d || last checksum: %d\n", calc_checksum(b_data_received,MESSAGE_LENGTH), b_chk_received,last_chk_received);
+			sprintf(debugmsg,"B0 expected checksum: %d || received checksum: %d || last checksum: %d\n", calc_checksum(b_data_received,b_seq_received,b_ack_received,MESSAGE_LENGTH), b_chk_received,last_chk_received);
 			debug(debugmsg,5);
 		break;
 		case wait_for_call_1:
@@ -145,13 +144,13 @@ void b_fsm()
 				//b_send_pkt(0,1,ack);
 				b_state = wait_for_call_1;
 			}else{
-				sprintf(debugmsg,"B sent: nack1 for unknown reasons");
+				sprintf(debugmsg,"B1 sent: nack1 for unknown reasons");
 				debug(debugmsg,3);
 				tolayer3(1,nack1);
 			}
 			sprintf(debugmsg,"B1 expected seqnum: %d || received seqnum: %d \n", 1, b_seq_received);
 			debug(debugmsg,5);
-			sprintf(debugmsg,"B1 expected checksum: %d || received checksum: %d || last checksum: %d\n", calc_checksum(b_data_received,MESSAGE_LENGTH), b_chk_received,last_chk_received);
+			sprintf(debugmsg,"B1 expected checksum: %d || received checksum: %d || last checksum: %d\n", calc_checksum(b_data_received,b_seq_received,b_ack_received,MESSAGE_LENGTH), b_chk_received,last_chk_received);
 			debug(debugmsg,5);
 
 		break;
@@ -179,17 +178,17 @@ void init_b(){
 	memcpy(ack0.payload,"THIS IS AN ACK",14);
 	ack0.acknum=1;
 	ack0.seqnum=0;
-	ack0.checksum = calc_checksum(ack0.payload,MESSAGE_LENGTH);
+	ack0.checksum = calc_checksum(ack0.payload,ack0.seqnum,ack0.acknum,MESSAGE_LENGTH);
 	memcpy(ack1.payload,"THIS IS AN ACK",14);
 	ack1.acknum=1;
 	ack1.seqnum=1;
-	ack1.checksum = calc_checksum(ack1.payload,MESSAGE_LENGTH);
+	ack1.checksum = calc_checksum(ack1.payload,ack1.seqnum,ack1.acknum,MESSAGE_LENGTH);
 	memcpy(nack0.payload,"THIS IS A NACK",14);
 	nack0.acknum=2;
 	nack0.seqnum=0;
-	nack0.checksum = calc_checksum(nack0.payload,MESSAGE_LENGTH);
+	nack0.checksum = calc_checksum(nack0.payload,nack0.seqnum,nack0.acknum,MESSAGE_LENGTH);
 	memcpy(nack1.payload,"THIS IS A NACK",14);
 	nack1.acknum=2;
 	nack1.seqnum=1;
-	nack1.checksum = calc_checksum(nack1.payload,MESSAGE_LENGTH);
+	nack1.checksum = calc_checksum(nack1.payload,nack1.seqnum,nack1.acknum,MESSAGE_LENGTH);
 }

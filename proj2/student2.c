@@ -5,7 +5,6 @@
 #include <sys/sem.h>
 #include <sys/types.h>
 #include "project2.h"
-#define JPGTRACE 3
  
 /* ***************************************************************************
  ALTERNATING BIT AND GO-BACK-N NETWORK EMULATOR: VERSION 1.1  J.F.Kurose
@@ -127,25 +126,55 @@ void B_init() {
  	init_b();  
 }
 
-//calculates the checksum for a given set of data
+/*//calculates the checksum for a given set of data
 int calc_checksum(char* message, int len)
 {	
-	int checksum,i;
-	checksum = 0;
+	int checksum=0,secsum=0,i;
 	unsigned char tempmsg[(sizeof(char)*len)];
 	memcpy(tempmsg,message,(sizeof(char)*len));
 	unsigned char *messageptr = tempmsg;
-	for(i = 0;i<(sizeof(char)*len)/2;i++)
+	for(i = 0;i<(sizeof(char)*len);i++)
 	{
 
-		checksum += messageptr[i];
-		checksum += messageptr[(sizeof(char)*len)-1];
+
+		checksum 	+= messageptr[i];
+		secsum 		+= checksum;
+		//checksum 	+= messageptr[i+((int)(sizeof(char)*len)*1/3)];
+		//checksum 	+= messageptr[(sizeof(char)*len)-1];
 	}
+	checksum = checksum+secsum % 255;
+
+	sprintf(debugmsg,"message: %s, checksum: %d\n",messageptr, checksum );
+	debug(debugmsg,5);
+	return checksum;
+}*/
+//calculates the checksum for a given set of data
+int calc_checksum(char* message,int seq, int ack, int len)
+{	
+	int checksum=0,secsum=0,i;
+	unsigned char tempmsg[(sizeof(char)*len)];
+	memcpy(tempmsg,message,(sizeof(char)*len));
+	unsigned char *messageptr = tempmsg;
+	for(i = 0;i<(sizeof(char)*len);i++)
+	{
+
+
+		checksum 	+= messageptr[i]+messageptr[i];
+		secsum 		+= checksum*2;
+		if((i % 3) == 0)
+			checksum += seq;
+
+		if((i % 2) == 0)
+			checksum += ack;
+		//checksum 	+= messageptr[i+((int)(sizeof(char)*len)*1/3)];
+		//checksum 	+= messageptr[(sizeof(char)*len)-1];
+	}
+	checksum = checksum+secsum % 255;
+	checksum = checksum + (seq*2) + ack;
 	sprintf(debugmsg,"message: %s, checksum: %d\n",messageptr, checksum );
 	debug(debugmsg,5);
 	return checksum;
 }
-
 //prints debug messages if the trace level is high enough
 void debug(char* debug_message, int trace_level)
 {

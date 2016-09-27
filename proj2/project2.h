@@ -39,6 +39,7 @@
 // to the remote layer 5 via the students transport level protocol entities.  
 
 #define  MESSAGE_LENGTH  20
+#define JPGTRACE 0
 
 char *ack_str;
 char *nack_str;
@@ -172,7 +173,7 @@ char* get_nessage();
 void a_push_message(struct msg message);
 
 //calculates the checksum for a given set of data
-int calc_checksum(char* message, int len);
+int calc_checksum(char* message, int seq, int ack,int len);
 //prints debug messages if the trace level is high enough
 void debug(char* debug_message, int trace_level);
 #endif
