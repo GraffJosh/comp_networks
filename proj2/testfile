@@ -1,19 +1,19 @@
 #!/usr/bin/expect
 spawn ./project2
 expect ":"
-send "10\n"		
+send "100\n"		
 			#numpkt
 expect ":"
 send "0\n"	
 			#loss
 expect ":"
-send "0.0\n"
+send "0.1\n"
 			#corrupt
 expect ":"
 send ".5\n"
 			#order
 expect ":"
-send "1000\n"
+send "5\n"
 			#time
 expect ":"
 send "0\n"

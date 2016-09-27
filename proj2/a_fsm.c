@@ -27,19 +27,24 @@ void a_push_message(struct msg message)
 
 		a_buffer_length = a_buffer_length + 1;
 	}*/
-	newbuffer = realloc(newbuffer,sizeof(struct buffer));
+
+	newbuffer = malloc(sizeof(struct buffer));
 	if(a_buffer_length>0)
 	{
 		a_buffer_last->next = newbuffer;
 	}else if(a_buffer_length == 0){
 		a_buffer = newbuffer;
 	}
+
 	newbuffer->prev = a_buffer_last;
 	newbuffer->next = NULL;
 	a_buffer_last = newbuffer;
 	memcpy(&newbuffer->message,&message, sizeof(struct msg));
 	a_buffer_length = a_buffer_length + 1;
-}
+/*	printf("newbuffer: %p newbuffer->prev: %p newbuffer->next: %p\n",newbuffer,newbuffer->prev,newbuffer->next );
+	printf("a_buffer_last: %p a_buffer_last->prev: %p a_buffer_last->next: %p\n",a_buffer_last,a_buffer_last->prev,a_buffer_last->next );
+
+*/}
 
 //pops a message from the a queue
 //returns that message (with data)
@@ -50,7 +55,7 @@ char* get_message()
 	return pop_msg;*/
 	//free(a_buffer);
 
-	printf("get: %s, chk: %d\n",a_buffer->message.data,calc_checksum(a_buffer->message.data,MESSAGE_LENGTH));
+	printf("get: %s, chk: %d,\n",a_buffer->message.data,calc_checksum(a_buffer->message.data,MESSAGE_LENGTH));
 	return a_buffer->message.data;
 }
 
@@ -58,25 +63,24 @@ char* get_message()
 void delete_message()
 {
 	struct buffer *delete_buffer;
-	printf("delete: %s\n",a_buffer->message.data );
-
+	printf("delete: %s bufferlen: %d\n",a_buffer->message.data, a_buffer_length);
 	a_buffer_length = a_buffer_length - 1;
-	printf("bufferlen: %d\n", a_buffer_length);
 	if(a_buffer_length > 1)
 	{
 		delete_buffer = a_buffer;
-
 		a_buffer = a_buffer->next;
 		a_buffer->prev = NULL;
-
+		printf("a_buffer: %p delete_buffer: %p a_buffer_last: %p\n",a_buffer,delete_buffer,a_buffer_last );
 		free(delete_buffer);
 	}else if(a_buffer_length == 1)
 	{
 		delete_buffer = a_buffer;
 		a_buffer = a_buffer->next;
+		printf("a_buffer: %p delete_buffer: %p a_buffer_last: %p\n",a_buffer,delete_buffer,a_buffer_last );
 		free(delete_buffer);
 	}else if(a_buffer_length == 0)
 	{
+		printf("a_buffer: %p delete_buffer: %p a_buffer_last: %p\n",a_buffer,delete_buffer,a_buffer_last );
 		free(a_buffer);
 		a_buffer = NULL;
 	}
@@ -92,8 +96,8 @@ int a_send_pkt(int seqnum, int acknum, char* data)
 	a_send_packet->acknum 		= acknum;
 	a_send_packet->checksum 	= calc_checksum(a_send_packet->payload,MESSAGE_LENGTH);
 	tolayer3(AEntity,*a_send_packet);
-	sprintf(debugmsg,"A SENT: %s\n",data);
-	debug(debugmsg,5);
+	sprintf(debugmsg,"A SENT %d data: %s, A_chk: %d \n",a_send_packet->seqnum,a_send_packet->payload, a_send_packet->checksum);
+	debug(debugmsg,3);
 }
 
 //FSM handler for a_receive
@@ -101,13 +105,13 @@ void a_receive_pkt(struct pkt packet)
 {
 
 	last_chk_received = a_chk_received;
-	memcpy(a_data_received, packet.payload,14);
+	memcpy(a_data_received, packet.payload,MESSAGE_LENGTH);
 	a_seq_recevied = packet.seqnum;
 	a_ack_received = packet.acknum;	
 	a_chk_received = packet.checksum - calc_checksum(packet.payload,MESSAGE_LENGTH);
 	sprintf(debugmsg,"A Received checksum: %d\n",a_chk_received);
 	debug(debugmsg,5);
-	printf("data Areceved: %s seq: %d chk: %d vs calc: %d\n",a_data_received, a_seq_recevied, packet.checksum, calc_checksum(a_data_received,14));
+	printf("data Areceved: %s seq: %d chk: %d vs calc: %d\n",a_data_received, a_seq_recevied, packet.checksum, calc_checksum(packet.payload,MESSAGE_LENGTH));
 	new_received = TRUE;
 }
 
@@ -137,6 +141,12 @@ void a_fsm()
 					if(a_buffer_length)
 						delete_message();
 					a_state = wait_for_call_1;
+					if(a_buffer_length)
+					{
+						sprintf(debugmsg,"CONFIRMED RECEIVED SEND ANOTHER: %d\n",1);
+						debug(debugmsg,3);
+						a_fsm();
+					}
 				}else{
 
 					sprintf(debugmsg,"Resend0 because: Seq: %d, Ack: %d, Chk: %d\n", a_seq_recevied,a_ack_received,a_chk_received );
@@ -169,6 +179,12 @@ void a_fsm()
 					if(a_buffer_length)
 						delete_message();
 					a_state = wait_for_call_0;
+					if(a_buffer_length)
+					{
+						sprintf(debugmsg,"CONFIRMED RECEIVED SEND ANOTHER: %d\n",1);
+						debug(debugmsg,3);
+						a_fsm();
+					}
 				}else{
 					sprintf(debugmsg,"Resend0 because: Seq: %d, Ack: %d, Chk: %d\n", a_seq_recevied,a_ack_received,a_chk_received );
 					debug(debugmsg,3);

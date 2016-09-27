@@ -135,7 +135,7 @@ int calc_checksum(char* message, int len)
 	unsigned char tempmsg[(sizeof(char)*len)];
 	memcpy(tempmsg,message,(sizeof(char)*len));
 	unsigned char *messageptr = tempmsg;
-	for(i = 0;i<(sizeof(char)*len);i++)
+	for(i = 0;i<(sizeof(char)*len)/2;i++)
 	{
 
 		checksum += messageptr[i];

@@ -12,7 +12,7 @@ int b_seq_received,b_ack_received,b_chk_received,last_chk_received,ack_len;
 char *nack,*ack;
 struct pkt bsendpkt;
 struct pkt *b_send_packet;
-
+struct pkt ack0,ack1,nack0,nack1;
 
 int b_send_pkt(int seqnum, int acknum, char* data)
 {
@@ -55,8 +55,8 @@ void b_receive_pkt(struct pkt packet)
 	strncpy(b_data_received, packet.payload,MESSAGE_LENGTH);
 	b_seq_received = packet.seqnum;
 	b_ack_received = packet.acknum;
-	b_chk_received = packet.checksum - calc_checksum(b_data_received,MESSAGE_LENGTH);
-	sprintf(debugmsg,"B Received data: %s , b_chk: %d vs %d\n",b_data_received, packet.checksum, calc_checksum(b_data_received,MESSAGE_LENGTH));
+	b_chk_received = packet.checksum - calc_checksum(packet.payload,MESSAGE_LENGTH);
+	sprintf(debugmsg,"B Received %d data: %s, b_chk: %d vs %d == %d\n",b_seq_received,b_data_received, packet.checksum, calc_checksum(packet.payload,MESSAGE_LENGTH), b_chk_received);
 	debug(debugmsg,3);
 
 }
@@ -73,17 +73,23 @@ void b_fsm()
 	switch(b_state)
 	{
 		case wait_for_call_0:
-			if(b_seq_received ==0 && (b_chk_received == 0)|| b_chk_received == last_chk_received){
+			if(b_seq_received ==0 && (b_chk_received == 0)){
 				deliver(b_data_received);
 				sprintf(debugmsg,"B0 received correct: checksum: %d\n", b_chk_received);
 				debug(debugmsg,3);
-				b_send_pkt(0,1,ack);
+				sprintf(debugmsg,"B0 sent: ack0");
+				debug(debugmsg,3);
+				tolayer3(1,ack0);
+				//b_send_pkt(0,1,ack);
 				b_state = wait_for_call_1;
-			}else if(b_seq_received ==0 && b_chk_received != 0){
+			}else if(b_chk_received != 0){
 				struct msg message;
 				sprintf(debugmsg,"B0 received corrupt packet in 0!chk: %d\n", b_chk_received);
 				debug(debugmsg,3);
-				b_send_pkt(b_seq_received,2,nack);
+				sprintf(debugmsg,"B sent: nack0");
+				debug(debugmsg,3);
+				tolayer3(1,nack0);
+				//b_send_pkt(b_seq_received,2,nack);
 				b_state = wait_for_call_0;
 			}else if(b_seq_received ==1 && b_chk_received == 0)
 			{
@@ -91,8 +97,15 @@ void b_fsm()
 				memcpy(&message.data, &b_data_received,MESSAGE_LENGTH);
 				sprintf(debugmsg,"B0 received duplicate: %d\n", b_chk_received);
 				debug(debugmsg,3);
-				b_send_pkt(1,1,ack);
+				sprintf(debugmsg,"B sent: ack1");
+				debug(debugmsg,3);
+				tolayer3(1,ack1);
+				//b_send_pkt(1,1,ack);
 				b_state = wait_for_call_0;
+			}else{
+				sprintf(debugmsg,"B sent: nack0 for unknown reasons");
+				debug(debugmsg,3);
+				tolayer3(1,nack0);
 			}
 
 			sprintf(debugmsg,"B0 expected seqnum: %d || received seqnum: %d \n", 1, b_seq_received);
@@ -106,13 +119,19 @@ void b_fsm()
 				deliver(b_data_received);
 				sprintf(debugmsg,"B1 received correct checksum: %d\n", b_chk_received);
 				debug(debugmsg,3);
-				b_send_pkt(1,1,ack);
+				sprintf(debugmsg,"B1 sent: ack1");
+				debug(debugmsg,3);
+				tolayer3(1,ack1);
+				//b_send_pkt(1,1,ack);
 				b_state = wait_for_call_0;
-			}else if(b_seq_received ==1 && b_chk_received != 0){
+			}else if(b_chk_received != 0){
 				struct msg message;
 				sprintf(debugmsg,"B1 received corrupt packet in 1!chk: %d\n", b_chk_received);
 				debug(debugmsg,3);
-				b_send_pkt(b_seq_received,2,nack);
+				sprintf(debugmsg,"B1 sent: nack1");
+				debug(debugmsg,3);
+				tolayer3(1,nack1);
+				//b_send_pkt(b_seq_received,2,nack);
 				//b_state = wait_for_call_1;
 			}else if(b_seq_received ==0 && b_chk_received == 0)
 			{
@@ -120,8 +139,15 @@ void b_fsm()
 				memcpy(&message.data, &b_data_received,MESSAGE_LENGTH);
 				sprintf(debugmsg,"B1 received duplicate: %d\n", b_chk_received);
 				debug(debugmsg,3);
-				b_send_pkt(0,1,ack);
+				sprintf(debugmsg,"B1 sent: ack0");
+				debug(debugmsg,3);
+				tolayer3(1,ack0);
+				//b_send_pkt(0,1,ack);
 				b_state = wait_for_call_1;
+			}else{
+				sprintf(debugmsg,"B sent: nack1 for unknown reasons");
+				debug(debugmsg,3);
+				tolayer3(1,nack1);
 			}
 			sprintf(debugmsg,"B1 expected seqnum: %d || received seqnum: %d \n", 1, b_seq_received);
 			debug(debugmsg,5);
@@ -148,4 +174,22 @@ void init_b(){
 	nack = realloc(nack, ack_len);
 	memcpy(ack,"THIS IS AN ACK",ack_len);
 	memcpy(nack,"THIS IS A NACK",ack_len);
+
+
+	memcpy(ack0.payload,"THIS IS AN ACK",14);
+	ack0.acknum=1;
+	ack0.seqnum=0;
+	ack0.checksum = calc_checksum(ack0.payload,MESSAGE_LENGTH);
+	memcpy(ack1.payload,"THIS IS AN ACK",14);
+	ack1.acknum=1;
+	ack1.seqnum=1;
+	ack1.checksum = calc_checksum(ack1.payload,MESSAGE_LENGTH);
+	memcpy(nack0.payload,"THIS IS A NACK",14);
+	nack0.acknum=2;
+	nack0.seqnum=0;
+	nack0.checksum = calc_checksum(nack0.payload,MESSAGE_LENGTH);
+	memcpy(nack1.payload,"THIS IS A NACK",14);
+	nack1.acknum=2;
+	nack1.seqnum=1;
+	nack1.checksum = calc_checksum(nack1.payload,MESSAGE_LENGTH);
 }
