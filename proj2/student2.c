@@ -74,17 +74,14 @@ void A_input(struct pkt packet) {
  * and stoptimer() in the writeup for how the timer is started and stopped.
  */
 void A_timerinterrupt() {
-
+	a_timed_out = TRUE;
+	a_fsm();
 }  
 
 /* The following routine will be called once (only) before any other    */
 /* entity A routines are called. You can use it to do any initialization */
 void A_init() {
-	ack_str = realloc(ack_str,MESSAGE_LENGTH);
-	nack_str = realloc(nack_str,MESSAGE_LENGTH);
-	memcpy(ack_str,"THIS IS AN ACK",MESSAGE_LENGTH);
-	memcpy(nack_str,"THIS IS A NACK",MESSAGE_LENGTH);
- 	init_b();  
+ 	init_a();  
 }
 
 
@@ -112,6 +109,8 @@ void B_input(struct pkt packet) {
  * and stoptimer() in the writeup for how the timer is started and stopped.
  */
 void  B_timerinterrupt() {
+	b_timed_out = TRUE;
+	b_fsm();
 }
 
 /* 
@@ -119,10 +118,6 @@ void  B_timerinterrupt() {
  * entity B routines are called. You can use it to do any initialization 
  */
 void B_init() {
-	ack_str = realloc(ack_str,14);
-	nack_str = realloc(nack_str,14);
-	//memcpy(ack_str,"THIS IS AN ACK",MESSAGE_LENGTH);
-	//memcpy(nack_str,"THIS IS A NACK",MESSAGE_LENGTH);
  	init_b();  
 }
 

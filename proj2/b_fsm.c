@@ -5,8 +5,9 @@
 #include "project2.h"
 
 
-enum fsm_state b_state = wait_for_call_0;
+enum fsm_state b_state = wait_for_call_0,b_last_state;
 char debugmsg[MESSAGE_LENGTH],*b_data_received;
+int b_new_received = FALSE,b_timed_out = FALSE;
 int b_seq_received,b_ack_received,b_chk_received,last_chk_received,ack_len;
 char *nack,*ack;
 struct pkt bsendpkt;
@@ -57,7 +58,7 @@ void b_receive_pkt(struct pkt packet)
 	b_chk_received = packet.checksum - calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH);
 	sprintf(debugmsg,"B Received %d data: %s, b_chk: %d vs %d == %d\n",b_seq_received,b_data_received, packet.checksum, calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH), b_chk_received);
 	debug(debugmsg,3);
-
+	b_new_received = TRUE;
 }
 
 void deliver(char *data_received)
@@ -72,87 +73,106 @@ void b_fsm()
 	switch(b_state)
 	{
 		case wait_for_call_0:
-			if(b_seq_received ==0 && (b_chk_received == 0)){
-				deliver(b_data_received);
-				sprintf(debugmsg,"B0 received correct: checksum: %d\n", b_chk_received);
-				debug(debugmsg,3);
-				sprintf(debugmsg,"B0 sent: ack0");
-				debug(debugmsg,3);
-				tolayer3(1,ack0);
-				//b_send_pkt(0,1,ack);
-				b_state = wait_for_call_1;
-			}else if(b_chk_received != 0){
-				struct msg message;
-				sprintf(debugmsg,"B0 received corrupt packet in 0!chk: %d\n", b_chk_received);
-				debug(debugmsg,3);
-				sprintf(debugmsg,"B0 sent: nack0");
-				debug(debugmsg,3);
-				tolayer3(1,nack0);
-				//b_send_pkt(b_seq_received,2,nack);
-				//b_state = wait_for_call_0;
-			}else if(b_seq_received ==1 && b_chk_received == 0)
+			if(b_new_received)
 			{
-				struct msg message;
-				memcpy(&message.data, &b_data_received,MESSAGE_LENGTH);
-				sprintf(debugmsg,"B0 received duplicate: %d\n", b_chk_received);
-				debug(debugmsg,3);
-				sprintf(debugmsg,"B0 sent: ack1");
-				debug(debugmsg,3);
-				tolayer3(1,ack1);
-				//b_send_pkt(1,1,ack);
-				b_state = wait_for_call_0;
-			}else{
-				sprintf(debugmsg,"B0 sent: nack0 for unknown reasons");
-				debug(debugmsg,3);
-				tolayer3(1,nack0);
-			}
+				if(b_seq_received ==0 && (b_chk_received == 0)){
+					deliver(b_data_received);
+					sprintf(debugmsg,"B0 received correct: checksum: %d\n", b_chk_received);
+					debug(debugmsg,3);
+					sprintf(debugmsg,"B0 sent: ack0");
+					debug(debugmsg,3);
+					tolayer3(1,ack0);
+					//b_send_pkt(0,1,ack);
+					b_state = wait_for_call_1;
+				}else if(b_chk_received != 0){
+					struct msg message;
+					sprintf(debugmsg,"B0 received corrupt packet in 0!chk: %d\n", b_chk_received);
+					debug(debugmsg,3);
+					sprintf(debugmsg,"B0 sent: nack0");
+					debug(debugmsg,3);
+					tolayer3(1,nack0);
+					//b_send_pkt(b_seq_received,2,nack);
+					//b_state = wait_for_call_0;
+				}else if(b_seq_received ==1 && b_chk_received == 0)
+				{
+					struct msg message;
+					memcpy(&message.data, &b_data_received,MESSAGE_LENGTH);
+					sprintf(debugmsg,"B0 received duplicate: %d\n", b_chk_received);
+					debug(debugmsg,3);
+					sprintf(debugmsg,"B0 sent: ack1");
+					debug(debugmsg,3);
+					tolayer3(1,ack1);
+					//b_send_pkt(1,1,ack);
+					b_state = wait_for_call_0;
+				}else{
+					sprintf(debugmsg,"B0 sent: nack0 for unknown reasons");
+					debug(debugmsg,3);
+					tolayer3(1,nack0);
+				}
 
-			sprintf(debugmsg,"B0 expected seqnum: %d || received seqnum: %d \n", 1, b_seq_received);
-			debug(debugmsg,5);
-			sprintf(debugmsg,"B0 expected checksum: %d || received checksum: %d || last checksum: %d\n", calc_checksum(b_data_received,b_seq_received,b_ack_received,MESSAGE_LENGTH), b_chk_received,last_chk_received);
-			debug(debugmsg,5);
+				sprintf(debugmsg,"B0 expected seqnum: %d || received seqnum: %d \n", 1, b_seq_received);
+				debug(debugmsg,5);
+				sprintf(debugmsg,"B0 expected checksum: %d || received checksum: %d || last checksum: %d\n", calc_checksum(b_data_received,b_seq_received,b_ack_received,MESSAGE_LENGTH), b_chk_received,last_chk_received);
+				debug(debugmsg,5);
+
+				b_new_received = FALSE;
+				b_last_state = wait_for_call_0;
+			}
+			if(b_timed_out)
+			{
+				b_state = b_last_state;
+				b_fsm();
+			}
 		break;
 		case wait_for_call_1:
-			
-			if(b_seq_received ==1 && (b_chk_received == 0 )){
-				deliver(b_data_received);
-				sprintf(debugmsg,"B1 received correct checksum: %d\n", b_chk_received);
-				debug(debugmsg,3);
-				sprintf(debugmsg,"B1 sent: ack1");
-				debug(debugmsg,3);
-				tolayer3(1,ack1);
-				//b_send_pkt(1,1,ack);
-				b_state = wait_for_call_0;
-			}else if(b_chk_received != 0){
-				struct msg message;
-				sprintf(debugmsg,"B1 received corrupt packet in 1!chk: %d\n", b_chk_received);
-				debug(debugmsg,3);
-				sprintf(debugmsg,"B1 sent: nack1");
-				debug(debugmsg,3);
-				tolayer3(1,nack1);
-				//b_send_pkt(b_seq_received,2,nack);
-				//b_state = wait_for_call_1;
-			}else if(b_seq_received ==0 && b_chk_received == 0)
+			if(b_new_received)
 			{
-				struct msg message;
-				memcpy(&message.data, &b_data_received,MESSAGE_LENGTH);
-				sprintf(debugmsg,"B1 received duplicate: %d\n", b_chk_received);
-				debug(debugmsg,3);
-				sprintf(debugmsg,"B1 sent: ack0");
-				debug(debugmsg,3);
-				tolayer3(1,ack0);
-				//b_send_pkt(0,1,ack);
-				b_state = wait_for_call_1;
-			}else{
-				sprintf(debugmsg,"B1 sent: nack1 for unknown reasons");
-				debug(debugmsg,3);
-				tolayer3(1,nack1);
+				if(b_seq_received ==1 && (b_chk_received == 0 )){
+					deliver(b_data_received);
+					sprintf(debugmsg,"B1 received correct checksum: %d\n", b_chk_received);
+					debug(debugmsg,3);
+					sprintf(debugmsg,"B1 sent: ack1");
+					debug(debugmsg,3);
+					tolayer3(1,ack1);
+					//b_send_pkt(1,1,ack);
+					b_state = wait_for_call_0;
+				}else if(b_chk_received != 0){
+					struct msg message;
+					sprintf(debugmsg,"B1 received corrupt packet in 1!chk: %d\n", b_chk_received);
+					debug(debugmsg,3);
+					sprintf(debugmsg,"B1 sent: nack1");
+					debug(debugmsg,3);
+					tolayer3(1,nack1);
+					//b_send_pkt(b_seq_received,2,nack);
+					//b_state = wait_for_call_1;
+				}else if(b_seq_received ==0 && b_chk_received == 0)
+				{
+					struct msg message;
+					memcpy(&message.data, &b_data_received,MESSAGE_LENGTH);
+					sprintf(debugmsg,"B1 received duplicate: %d\n", b_chk_received);
+					debug(debugmsg,3);
+					sprintf(debugmsg,"B1 sent: ack0");
+					debug(debugmsg,3);
+					tolayer3(1,ack0);
+					//b_send_pkt(0,1,ack);
+					b_state = wait_for_call_1;
+				}else{
+					sprintf(debugmsg,"B1 sent: nack1 for unknown reasons");
+					debug(debugmsg,3);
+					tolayer3(1,nack1);
+				}
+				sprintf(debugmsg,"B1 expected seqnum: %d || received seqnum: %d \n", 1, b_seq_received);
+				debug(debugmsg,5);
+				sprintf(debugmsg,"B1 expected checksum: %d || received checksum: %d || last checksum: %d\n", calc_checksum(b_data_received,b_seq_received,b_ack_received,MESSAGE_LENGTH), b_chk_received,last_chk_received);
+				debug(debugmsg,5);
+				b_new_received = FALSE;
+				b_last_state = wait_for_call_1;
 			}
-			sprintf(debugmsg,"B1 expected seqnum: %d || received seqnum: %d \n", 1, b_seq_received);
-			debug(debugmsg,5);
-			sprintf(debugmsg,"B1 expected checksum: %d || received checksum: %d || last checksum: %d\n", calc_checksum(b_data_received,b_seq_received,b_ack_received,MESSAGE_LENGTH), b_chk_received,last_chk_received);
-			debug(debugmsg,5);
-
+			if(b_timed_out)
+			{
+				b_state = b_last_state;
+				b_fsm();
+			}
 		break;
 		default:
 		break;

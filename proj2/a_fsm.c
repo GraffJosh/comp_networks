@@ -7,7 +7,7 @@
 enum fsm_state a_state = wait_for_call_0;
 struct msg *ack,*nack;
 struct buffer *a_buffer,*a_buffer_last,*newbuffer;
-int a_buffer_length=0,new_received;
+int a_buffer_length=0,a_new_received = FALSE,a_timed_out = FALSE;
 char debugmsg[MESSAGE_LENGTH],a_data_received[MESSAGE_LENGTH];
 int a_ack_received,a_seq_received,a_chk_received,last_chk_received,last_seq_sent;
 struct pkt *a_send_packet;
@@ -99,12 +99,14 @@ int a_send_pkt(int seqnum, int acknum, char* data)
 	tolayer3(AEntity,*a_send_packet);
 	sprintf(debugmsg,"A SENT %d data: %s, A_chk: %d \n",a_send_packet->seqnum,a_send_packet->payload, a_send_packet->checksum);
 	debug(debugmsg,3);
+	startTimer(AEntity,TIMEOUT_LENGTH);
 }
 
 //FSM handler for a_receive
 void a_receive_pkt(struct pkt packet)
 {
 
+	stopTimer(AEntity);
 	last_chk_received = a_chk_received;
 	memcpy(a_data_received, packet.payload,MESSAGE_LENGTH);
 	a_seq_received = packet.seqnum;
@@ -114,7 +116,7 @@ void a_receive_pkt(struct pkt packet)
 	debug(debugmsg,5);
 	sprintf(debugmsg,"data Areceved: %s seq: %d chk: %d vs calc: %d\n",a_data_received, a_seq_received, packet.checksum, calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH));
 	debug(debugmsg,5);
-	new_received = TRUE;
+	a_new_received = TRUE;
 }
 
 void a_fsm()
@@ -132,7 +134,7 @@ void a_fsm()
 			}
 		break;
 		case wait_for_ack_0:	
-			if(new_received)
+			if(a_new_received == TRUE)
 			{
 				sprintf(debugmsg,"A0 ack seq Expected: %d | seq Received: %d | Ack Received: %d\n", last_seq_sent, a_seq_received, a_ack_received);
 				debug(debugmsg,5);
@@ -156,7 +158,16 @@ void a_fsm()
 					a_state = wait_for_call_0;
 					a_fsm();
 				}
-				new_received = FALSE;
+				a_new_received = FALSE;
+			}
+			if(a_timed_out)
+			{
+				a_timed_out = FALSE;
+				sprintf(debugmsg,"Resend0 because: timeout\n");
+				debug(debugmsg,3);
+				a_state = wait_for_call_0;
+				a_fsm();
+				printf("00000000000000000000000000000000000000000000000\n");
 			}
 		break;
 		case wait_for_call_1:
@@ -170,7 +181,7 @@ void a_fsm()
 			}
 		break;
 		case wait_for_ack_1:
-			if(new_received)
+			if(a_new_received == TRUE)
 			{
 				sprintf(debugmsg,"A1 ack seq Expected: %d | seq Received: %d | Ack Received: %d\n", last_seq_sent, a_seq_received, a_ack_received);
 				debug(debugmsg,5);
@@ -193,7 +204,16 @@ void a_fsm()
 					a_state = wait_for_call_1;
 					a_fsm();
 				}
-				new_received = FALSE;
+				a_new_received = FALSE;
+			}
+			if(a_timed_out)
+			{						
+				a_timed_out = FALSE;		
+				sprintf(debugmsg,"Resend0 because: timeout\n");
+				debug(debugmsg,3);
+				a_state = wait_for_call_1;
+				a_fsm();			
+				printf("11111111111111111111111111111111111111111111111\n");
 			}
 
 		break;
@@ -208,8 +228,4 @@ void init_a()
 	a_send_packet = realloc(a_send_packet,MESSAGE_LENGTH);
 	a_buffer = realloc(a_buffer, sizeof(struct msg));
 	a_buffer_last = a_buffer;
-	ack = (struct msg*)malloc(sizeof(struct msg));
-	nack = (struct msg*)malloc(sizeof(struct msg));
-	memcpy(ack->data, ack_str,MESSAGE_LENGTH);
-	memcpy(nack->data, nack_str,MESSAGE_LENGTH);
 }

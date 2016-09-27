@@ -40,9 +40,9 @@
 
 #define  MESSAGE_LENGTH  20
 #define JPGTRACE 0
-
-char *ack_str;
-char *nack_str;
+#define TIMEOUT_LENGTH 60000
+int a_timed_out;
+int b_timed_out;
 enum fsm_state
 {
   wait_for_call_0,
