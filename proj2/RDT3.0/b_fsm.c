@@ -16,28 +16,6 @@ struct pkt ack0,ack1,nack0,nack1;
 
 int b_send_pkt(int seqnum, int acknum, char* data)
 {
-/*	bsendpkt.seqnum 		= seqnum;
-	bsendpkt.acknum 		= acknum;
-	bsendpkt.checksum 	= calc_checksum(data->data);
-	printf("BSenddata: %s\n",data->data );
-	memmove(bsendpkt.payload, data->data,sizeof(data->data));
-	tolayer3(BEntity,bsendpkt);	
-
-	sprintf(debugmsg,"B send seqnum: %d\n",bsendpkt.seqnum);
-	debug(debugmsg,5);
-*/
-/*	struct pkt *packet;
-	packet = malloc(sizeof(struct pkt));
-	memset(packet, 0,sizeof(struct pkt));
-	memset(packet->payload, 0, MESSAGE_LENGTH);
-	packet->seqnum 		= seqnum;
-	packet->acknum 		= acknum;
-	packet->checksum 	= calc_checksum(data,14);
-	strncpy(packet->payload, data,14);
-	tolayer3(BEntity,*packet);
-	sprintf(debugmsg,"B SENT: %s Seq: %d\n",data, packet->seqnum);
-	debug(debugmsg,3);
-	free(packet);*/
 	b_send_packet = realloc(b_send_packet, sizeof(struct pkt));
 	memset(b_send_packet->payload, 0,MESSAGE_LENGTH);
 	memcpy(b_send_packet->payload, data,MESSAGE_LENGTH);
@@ -81,8 +59,7 @@ void b_fsm()
 					debug(debugmsg,3);
 					sprintf(debugmsg,"B0 sent: ack0");
 					debug(debugmsg,3);
-					tolayer3(1,ack0);
-					//b_send_pkt(0,1,ack);
+					b_send_pkt(0,1,ack);
 					b_state = wait_for_call_1;
 				}else if(b_chk_received != 0){
 					struct msg message;
@@ -90,8 +67,7 @@ void b_fsm()
 					debug(debugmsg,3);
 					sprintf(debugmsg,"B0 sent: nack0");
 					debug(debugmsg,3);
-					tolayer3(1,nack0);
-					//b_send_pkt(b_seq_received,2,nack);
+					b_send_pkt(b_seq_received,2,nack);
 					//b_state = wait_for_call_0;
 				}else if(b_seq_received ==1 && b_chk_received == 0)
 				{
@@ -101,8 +77,7 @@ void b_fsm()
 					debug(debugmsg,3);
 					sprintf(debugmsg,"B0 sent: ack1");
 					debug(debugmsg,3);
-					tolayer3(1,ack1);
-					//b_send_pkt(1,1,ack);
+					b_send_pkt(1,1,ack);
 					b_state = wait_for_call_0;
 				}else{
 					sprintf(debugmsg,"B0 sent: nack0 for unknown reasons");
@@ -133,8 +108,7 @@ void b_fsm()
 					debug(debugmsg,3);
 					sprintf(debugmsg,"B1 sent: ack1");
 					debug(debugmsg,3);
-					tolayer3(1,ack1);
-					//b_send_pkt(1,1,ack);
+					b_send_pkt(1,1,ack);
 					b_state = wait_for_call_0;
 				}else if(b_chk_received != 0){
 					struct msg message;
@@ -142,8 +116,7 @@ void b_fsm()
 					debug(debugmsg,3);
 					sprintf(debugmsg,"B1 sent: nack1");
 					debug(debugmsg,3);
-					tolayer3(1,nack1);
-					//b_send_pkt(b_seq_received,2,nack);
+					b_send_pkt(b_seq_received,2,nack);
 					//b_state = wait_for_call_1;
 				}else if(b_seq_received ==0 && b_chk_received == 0)
 				{
@@ -153,8 +126,7 @@ void b_fsm()
 					debug(debugmsg,3);
 					sprintf(debugmsg,"B1 sent: ack0");
 					debug(debugmsg,3);
-					tolayer3(1,ack0);
-					//b_send_pkt(0,1,ack);
+					b_send_pkt(0,1,ack);
 					b_state = wait_for_call_1;
 				}else{
 					sprintf(debugmsg,"B1 sent: nack1 for unknown reasons");

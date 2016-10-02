@@ -164,7 +164,7 @@ int calc_checksum(char* message,int seq, int ack, int len)
 		//checksum 	+= messageptr[i+((int)(sizeof(char)*len)*1/3)];
 		//checksum 	+= messageptr[(sizeof(char)*len)-1];
 	}
-	checksum = checksum+secsum % 255;
+	checksum = checksum+secsum;
 	checksum = checksum + (seq*2) + ack;
 	sprintf(debugmsg,"message: %s, checksum: %d\n",messageptr, checksum );
 	debug(debugmsg,5);

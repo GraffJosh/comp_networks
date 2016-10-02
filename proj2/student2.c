@@ -74,8 +74,7 @@ void A_input(struct pkt packet) {
  * and stoptimer() in the writeup for how the timer is started and stopped.
  */
 void A_timerinterrupt() {
-	a_timed_out = TRUE;
-	a_fsm();
+	a_timeout();
 }  
 
 /* The following routine will be called once (only) before any other    */
@@ -99,7 +98,7 @@ void B_input(struct pkt packet) {
 	sprintf(debugmsg,"RECEIVED B\n");
 	debug(debugmsg,5);
 	b_receive_pkt(packet);
-	b_fsm();
+	//b_fsm();
 }
 
 /*
@@ -110,7 +109,7 @@ void B_input(struct pkt packet) {
  */
 void  B_timerinterrupt() {
 	b_timed_out = TRUE;
-	b_fsm();
+	//b_fsm();
 }
 
 /* 

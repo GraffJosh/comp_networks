@@ -39,8 +39,8 @@
 // to the remote layer 5 via the students transport level protocol entities.  
 
 #define  MESSAGE_LENGTH  20
-#define JPGTRACE 0
-#define TIMEOUT_LENGTH 60000
+#define JPGTRACE 3
+#define TIMEOUT_LENGTH 5
 int a_timed_out;
 int b_timed_out;
 enum fsm_state
@@ -63,6 +63,7 @@ FIFO queue for buffering
 struct buffer{
   struct buffer *prev;
   struct buffer *next;
+  int seq;
   struct msg message;
 };
 
@@ -165,11 +166,11 @@ int a_send_pkt(int seqnum, int acknum, char* data);
 int b_send_pkt(int seqnum, int acknum, char* data);
 void a_receive_pkt(struct pkt packet);
 void b_receive_pkt(struct pkt packet);
-
+void a_timeout();
 /*
 manages packet queue (buffer).
 */
-char* get_nessage();
+char* get_nessage(int curr_seq);
 void a_push_message(struct msg message);
 
 //calculates the checksum for a given set of data
