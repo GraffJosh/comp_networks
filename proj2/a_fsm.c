@@ -166,7 +166,7 @@ void init_a()
 	a_buffer = realloc(a_buffer, sizeof(struct msg));
 	a_buffer_last = a_buffer;
 	num_in_flight 		= 0;
-	max_num_in_flight 	= 20;
+	max_num_in_flight 	= 30;
 	base = 0;
 	curr_seq = 0;
 	push_seq = 0;
