@@ -95,8 +95,6 @@ void A_init() {
  * packet is the (possibly corrupted) packet sent from the A-side.
  */
 void B_input(struct pkt packet) {
-	sprintf(debugmsg,"RECEIVED B\n");
-	debug(debugmsg,5);
 	b_receive_pkt(packet);
 	//b_fsm();
 }
@@ -120,28 +118,7 @@ void B_init() {
  	init_b();  
 }
 
-/*//calculates the checksum for a given set of data
-int calc_checksum(char* message, int len)
-{	
-	int checksum=0,secsum=0,i;
-	unsigned char tempmsg[(sizeof(char)*len)];
-	memcpy(tempmsg,message,(sizeof(char)*len));
-	unsigned char *messageptr = tempmsg;
-	for(i = 0;i<(sizeof(char)*len);i++)
-	{
 
-
-		checksum 	+= messageptr[i];
-		secsum 		+= checksum;
-		//checksum 	+= messageptr[i+((int)(sizeof(char)*len)*1/3)];
-		//checksum 	+= messageptr[(sizeof(char)*len)-1];
-	}
-	checksum = checksum+secsum % 255;
-
-	sprintf(debugmsg,"message: %s, checksum: %d\n",messageptr, checksum );
-	debug(debugmsg,5);
-	return checksum;
-}*/
 //calculates the checksum for a given set of data
 int calc_checksum(char* message,int seq, int ack, int len)
 {	

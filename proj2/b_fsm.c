@@ -29,8 +29,8 @@ int b_send_pkt(int seqnum, int acknum, char* data)
 	b_send_packet->acknum 			= acknum;
 	b_send_packet->checksum 		= calc_checksum(b_send_packet->payload,b_send_packet->seqnum,b_send_packet->acknum, MESSAGE_LENGTH);
 	tolayer3(BEntity,*b_send_packet);
-	sprintf(debugmsg,"B SENT ack: %d\n",b_send_packet->seqnum);
-	debug(debugmsg,3);
+	sprintf(debugmsg,"B SENT seq: %d\n",b_send_packet->seqnum);
+	debug(debugmsg,6);
 }
 
 void b_receive_pkt(struct pkt packet)
@@ -39,15 +39,14 @@ void b_receive_pkt(struct pkt packet)
 	b_seq_received = packet.seqnum;
 	b_ack_received = packet.acknum;
 	b_chk_received = packet.checksum - calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH);
-	sprintf(debugmsg,"B Received %d data: %s, b_chk: %d vs %d == %d\n",b_seq_received,b_data_received, packet.checksum, calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH), b_chk_received);
-	debug(debugmsg,3);
+	sprintf(debugmsg,"B Received %d , b_chk: %d vs %d == %d\n",b_seq_received, packet.checksum, calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH), b_chk_received);
+	debug(debugmsg,5);
 	b_new_received = TRUE;
 
 	if(!b_chk_received && b_seq_received == last_seq_received+1)
 	{
 		deliver(b_data_received);
 		last_seq_received = b_seq_received;
-	printf("acknum: %d\n", b_ack_received);
 	}
 
 	b_send_pkt(last_seq_received,1,ack);
