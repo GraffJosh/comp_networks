@@ -129,7 +129,6 @@ void a_receive_pkt(struct pkt packet)
 	{
 		stopTimer(AEntity);
 		base = a_seq_received + 1;
-		printf("base: %d, timed out: %d, \n", base,a_timed_out);
 		delete_message(a_seq_received);
 		a_timed_out = 0;
 	}else{

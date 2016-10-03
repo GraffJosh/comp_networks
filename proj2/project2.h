@@ -40,7 +40,7 @@
 
 #define  MESSAGE_LENGTH  20
 #define JPGTRACE 3
-#define TIMEOUT_LENGTH 200
+#define TIMEOUT_LENGTH 400
 int a_timed_out;
 int b_timed_out;
 enum fsm_state
