@@ -39,8 +39,8 @@
 // to the remote layer 5 via the students transport level protocol entities.  
 
 #define  MESSAGE_LENGTH  20
-#define JPGTRACE 3
-#define TIMEOUT_LENGTH 5
+#define JPGTRACE 0
+#define TIMEOUT_LENGTH 60
 int a_timed_out;
 int b_timed_out;
 enum fsm_state

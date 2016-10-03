@@ -43,6 +43,7 @@ void a_push_message(struct msg message)
 	a_buffer_last = newbuffer;
 	memcpy(&newbuffer->message,&message, sizeof(struct msg));
 	a_buffer_length = a_buffer_length + 1;
+	a_fsm();
 /*	printf("newbuffer: %p newbuffer->prev: %p newbuffer->next: %p\n",newbuffer,newbuffer->prev,newbuffer->next );
 	printf("a_buffer_last: %p a_buffer_last->prev: %p a_buffer_last->next: %p\n",a_buffer_last,a_buffer_last->prev,a_buffer_last->next );
 
@@ -72,7 +73,6 @@ char* get_message(int pop_seq)
 //deletes the top of the queue when we receive an ACK
 void delete_message(int del_seq)
 {
-	printf("del_seq: %d\n", del_seq);
 	struct buffer *delete_buffer;
 	delete_buffer = a_buffer;
 	while(a_buffer->seq < del_seq)
@@ -86,17 +86,14 @@ void delete_message(int del_seq)
 			
 			a_buffer = a_buffer->next;
 			a_buffer->prev = NULL;
-			//printf("a_buffer: %p delete_buffer: %p a_buffer_last: %p\n",a_buffer,delete_buffer,a_buffer_last );
 			free(delete_buffer);
 		}else if(a_buffer_length == 1)
 		{
 			
 			a_buffer = a_buffer->next;
-			//printf("a_buffer: %p delete_buffer: %p a_buffer_last: %p\n",a_buffer,delete_buffer,a_buffer_last );
 			free(delete_buffer);
 		}else if(a_buffer_length == 0)
 		{
-			//printf("a_buffer: %p delete_buffer: %p a_buffer_last: %p\n",a_buffer,delete_buffer,a_buffer_last );
 			free(a_buffer);
 			a_buffer = NULL;
 		}
@@ -105,6 +102,7 @@ void delete_message(int del_seq)
 
 int a_send_pkt(int seqnum, int acknum, char* data)
 {
+	stopTimer(AEntity);
 	a_send_packet = realloc(a_send_packet, sizeof(struct pkt));
 	memset(a_send_packet->payload, 0,MESSAGE_LENGTH);
 	memcpy(a_send_packet->payload, data,MESSAGE_LENGTH);
@@ -114,52 +112,55 @@ int a_send_pkt(int seqnum, int acknum, char* data)
 	tolayer3(AEntity,*a_send_packet);
 	sprintf(debugmsg,"A SENT %d data: %s, A_chk: %d \n",a_send_packet->seqnum,a_send_packet->payload, a_send_packet->checksum);
 	debug(debugmsg,3);
-	startTimer(AEntity,TIMEOUT_LENGTH);
 }
 
 //FSM handler for a_receive
 void a_receive_pkt(struct pkt packet)
 {
 
-	stopTimer(AEntity);
 	last_chk_received = a_chk_received;
 	memcpy(a_data_received, packet.payload,MESSAGE_LENGTH);
 	a_seq_received = packet.seqnum;
 	a_ack_received = packet.acknum;	
 	a_chk_received = packet.checksum - calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH);
-	sprintf(debugmsg,"A Received checksum: %d\n",a_chk_received);
-	debug(debugmsg,5);
-	sprintf(debugmsg,"data Areceved: %s seq: %d chk: %d vs calc: %d\n",a_data_received, a_seq_received, packet.checksum, calc_checksum(packet.payload,packet.seqnum,packet.acknum, MESSAGE_LENGTH));
+	sprintf(debugmsg,"A Received sequence: %d\n",a_seq_received);
 	debug(debugmsg,3);
 	a_new_received = TRUE;
 
 	if(!a_chk_received && a_seq_received >= base)
 	{
-		printf("base: %d\n", base);
-		base = a_seq_received + 1;
-		num_in_flight--;
-		delete_message(a_seq_received);
 		stopTimer(AEntity);
+		printf("base: %d, timed out: %d\n", base,a_timed_out);
+		base = a_seq_received + 1;
+		num_in_flight  --;
+		delete_message(a_seq_received);
+		a_timed_out = 0;
+	}else{
+		startTimer(AEntity,TIMEOUT_LENGTH);
 	}
 	a_fsm();
 }
 
 void a_fsm()
 {
-	while(num_in_flight < max_num_in_flight && curr_seq-base < a_buffer_length)
+	while(num_in_flight < max_num_in_flight)// && curr_seq-base < a_buffer_length)
 	{
 		if(a_buffer_length && curr_seq-base < max_num_in_flight)
 		{
 			if(get_message(curr_seq))
-				a_send_pkt(curr_seq,0,get_message(curr_seq));			//send a message
+				a_send_pkt(curr_seq,num_in_flight,get_message(curr_seq));			//send a message
 				curr_seq++;
 				num_in_flight++;
+			if(curr_seq == base)
+			{
+				startTimer(AEntity, TIMEOUT_LENGTH);
+			}
 		}
 	}
 }
 
 void a_timeout(){
-	printf("timeout\n");
+	a_timed_out ++;
 	num_in_flight = 0;
 	curr_seq = base;
 	a_fsm();

@@ -47,6 +47,7 @@ void b_receive_pkt(struct pkt packet)
 	{
 		deliver(b_data_received);
 		last_seq_received = b_seq_received;
+	printf("acknum: %d\n", b_ack_received);
 	}
 
 	b_send_pkt(last_seq_received,1,ack);

@@ -164,8 +164,8 @@ int main( int argc, char *argv[] )     {
 	}
          
 	// Print out what's on the Q
-        if ( ( NumMsgs4To5 + 1 ) % (MaxMsgsToSimulate / 3) == 0 )
-            printEntireEventQ ( );
+/*        if ( ( NumMsgs4To5 + 1 ) % (MaxMsgsToSimulate / 3) == 0 )
+            printEntireEventQ ( );*/
         if ( TraceLevel >= 5 )    // WIth large trace level, print every time
             printEntireEventQ ( );
 
